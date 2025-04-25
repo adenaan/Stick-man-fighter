@@ -62,7 +62,7 @@
   const canvas = document.getElementById("gameCanvas");
   const ctx = canvas.getContext("2d");
 
-  const socket = io();
+  const socket = io("https://stick-man-fighter.glitch.me");
 
   let socketId = null;
   let myPlayer = { x: 100, y: 400, vx: 0, isPunching: false, isKicking: false, color: "lime" };
