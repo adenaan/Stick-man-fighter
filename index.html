@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, user-scalable=no">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, user-scalable=no" />
   <title>Stickman Fighter</title>
   <style>
     body {
@@ -55,107 +55,80 @@
   <button class="button" id="punch">👊</button>
 </div>
 
+<!-- Include socket.io client -->
+<script src="https://cdn.socket.io/4.3.2/socket.io.min.js"></script>
+
 <script>
   const canvas = document.getElementById("gameCanvas");
   const ctx = canvas.getContext("2d");
 
-  const socket = new WebSocket("wss://stick-man-fighter.glitch.me");
+  const socket = io("https://stick-man-fighter.glitch.me");
 
   let playerId = null;
   let myPlayer = { x: 100, y: 400, vx: 0, isPunching: false, isKicking: false, color: "lime" };
   let otherPlayers = {};
-
   const speed = 3;
 
-  socket.onmessage = (event) => {
-    const data = JSON.parse(event.data);
+  socket.on("init", (data) => {
+    playerId = data.playerId;
+    myPlayer.color = data.color;
+  });
 
-    if (data.type === "init") {
-      playerId = data.playerId;
-      myPlayer.color = data.color;  // Assign color based on the player
-    } else if (data.type === "position" && data.id !== playerId) {
+  socket.on("position", (data) => {
+    if (data.id !== playerId) {
       otherPlayers[data.id] = { x: data.x, y: data.y, isPunching: data.isPunching, isKicking: data.isKicking, color: data.color };
-    } else if (data.type === "remove") {
-      delete otherPlayers[data.id];
     }
-  };
+  });
+
+  socket.on("remove", (id) => {
+    delete otherPlayers[id];
+  });
 
   function sendPosition() {
     if (playerId) {
-      socket.send(JSON.stringify({
-        type: "position",
+      socket.emit("position", {
         id: playerId,
         x: myPlayer.x,
         y: myPlayer.y,
         isPunching: myPlayer.isPunching,
         isKicking: myPlayer.isKicking,
         color: myPlayer.color
-      }));
+      });
     }
   }
 
   function drawStickman(x, y, color, isPunching, isKicking) {
     ctx.strokeStyle = color;
     ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(x, y - 40, 10, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x, y - 30); ctx.lineTo(x, y - 10); ctx.stroke();
 
-    // Head
-    ctx.beginPath();
-    ctx.arc(x, y - 40, 10, 0, Math.PI * 2);
-    ctx.stroke();
-
-    // Body
-    ctx.beginPath();
-    ctx.moveTo(x, y - 30);
-    ctx.lineTo(x, y - 10);
-    ctx.stroke();
-
-    // Arms (swing if punching or kicking)
     if (isPunching) {
-      ctx.beginPath();
-      ctx.moveTo(x, y - 25);
-      ctx.lineTo(x + 15, y - 30); // Punch forward
-      ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x, y - 25); ctx.lineTo(x + 15, y - 30); ctx.stroke();
     } else if (isKicking) {
-      ctx.beginPath();
-      ctx.moveTo(x, y - 10);
-      ctx.lineTo(x + 15, y + 10); // Kick forward
-      ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x, y - 10); ctx.lineTo(x + 15, y + 10); ctx.stroke();
     } else {
       ctx.beginPath();
-      ctx.moveTo(x, y - 25);
-      ctx.lineTo(x + 5, y - 20); // Neutral arm
-      ctx.moveTo(x, y - 25);
-      ctx.lineTo(x - 5, y - 20); // Neutral arm
+      ctx.moveTo(x, y - 25); ctx.lineTo(x + 5, y - 20);
+      ctx.moveTo(x, y - 25); ctx.lineTo(x - 5, y - 20);
       ctx.stroke();
     }
 
-    // Legs (swing if moving)
     ctx.beginPath();
-    ctx.moveTo(x, y - 10);
-    ctx.lineTo(x + 10, y + 10);
-    ctx.moveTo(x, y - 10);
-    ctx.lineTo(x - 10, y + 10);
+    ctx.moveTo(x, y - 10); ctx.lineTo(x + 10, y + 10);
+    ctx.moveTo(x, y - 10); ctx.lineTo(x - 10, y + 10);
     ctx.stroke();
   }
 
   function gameLoop() {
-    // Update position
     myPlayer.x += myPlayer.vx;
-
-    // Clamp to canvas
     myPlayer.x = Math.max(10, Math.min(canvas.width - 10, myPlayer.x));
-
-    // Send position
     sendPosition();
 
-    // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Draw floor
     ctx.fillStyle = "#333";
     ctx.fillRect(0, 410, canvas.width, 5);
 
-    // Draw players
     drawStickman(myPlayer.x, myPlayer.y, myPlayer.color, myPlayer.isPunching, myPlayer.isKicking);
     for (let id in otherPlayers) {
       const p = otherPlayers[id];
@@ -167,7 +140,7 @@
 
   gameLoop();
 
-  // Input buttons
+  // Input setup
   const leftBtn = document.getElementById("left");
   const rightBtn = document.getElementById("right");
   const upBtn = document.getElementById("up");
@@ -178,16 +151,9 @@
   let moveRight = false;
 
   function updateMovement() {
-    if (moveLeft) {
-      myPlayer.vx = -speed;
-    } else if (moveRight) {
-      myPlayer.vx = speed;
-    } else {
-      myPlayer.vx = 0;
-    }
+    myPlayer.vx = moveLeft ? -speed : (moveRight ? speed : 0);
   }
 
-  // Movement button logic
   leftBtn.addEventListener("touchstart", () => { moveLeft = true; updateMovement(); });
   leftBtn.addEventListener("touchend", () => { moveLeft = false; updateMovement(); });
 
@@ -195,32 +161,28 @@
   rightBtn.addEventListener("touchend", () => { moveRight = false; updateMovement(); });
 
   upBtn.addEventListener("touchstart", () => {
-    myPlayer.y -= 40; // Jump
-    setTimeout(() => {
-      myPlayer.y += 40;
-    }, 300);
+    myPlayer.y -= 40;
+    setTimeout(() => { myPlayer.y += 40; }, 300);
   });
 
-  // Punch and kick button logic
   punchBtn.addEventListener("touchstart", () => {
     myPlayer.isPunching = true;
-    setTimeout(() => { myPlayer.isPunching = false; }, 300); // Punch duration
+    setTimeout(() => { myPlayer.isPunching = false; }, 300);
   });
 
   kickBtn.addEventListener("touchstart", () => {
     myPlayer.isKicking = true;
-    setTimeout(() => { myPlayer.isKicking = false; }, 300); // Kick duration
+    setTimeout(() => { myPlayer.isKicking = false; }, 300);
   });
 
-  // Prevent zooming on iPhone double tap
-  document.addEventListener("touchstart", function (event) {
-    if (event.touches.length > 1) event.preventDefault();
+  document.addEventListener("touchstart", function (e) {
+    if (e.touches.length > 1) e.preventDefault();
   }, { passive: false });
 
   let lastTouchEnd = 0;
-  document.addEventListener("touchend", function (event) {
+  document.addEventListener("touchend", function (e) {
     const now = new Date().getTime();
-    if (now - lastTouchEnd <= 300) event.preventDefault();
+    if (now - lastTouchEnd <= 300) e.preventDefault();
     lastTouchEnd = now;
   }, false);
 </script>
