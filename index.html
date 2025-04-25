@@ -2,102 +2,132 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport"
-        content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-  <title>Stickman Fight</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Stickman 1v1 Fight</title>
   <style>
     html, body {
       margin: 0;
       padding: 0;
-      background: #111;
-      color: #fff;
+      background: black;
+      color: white;
       font-family: sans-serif;
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
+      overflow: hidden;
       touch-action: manipulation;
     }
-
     canvas {
-      background: #222;
-      width: 90vw;
-      height: 60vh;
-      max-width: 100%;
-      max-height: 60vh;
-      border-radius: 10px;
+      display: block;
+      margin: 0 auto;
+      background: #111;
     }
-
-    #controls {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
-      width: 90vw;
-      max-width: 500px;
-      margin-top: 15px;
-      padding: 10px;
-      box-sizing: border-box;
+    .controls {
+      position: fixed;
+      bottom: 10px;
+      width: 100%;
+      display: flex;
+      justify-content: space-around;
+      flex-wrap: wrap;
+      padding: 5px;
     }
-
-    #controls button {
+    button {
       padding: 15px;
-      font-size: 1.2em;
+      font-size: 16px;
+      margin: 4px;
+      width: 22%;
       border: none;
-      border-radius: 10px;
+      border-radius: 8px;
       background: #333;
       color: white;
     }
-
-    #controls button:active {
+    button:active {
       background: #555;
     }
   </style>
 </head>
 <body>
-  <canvas id="gameCanvas" width="800" height="400"></canvas>
-
-  <div id="controls">
-    <button id="up">↑</button>
-    <button id="kick">Kick</button>
-    <button id="hit">Hit</button>
-    <button id="left">←</button>
-    <button id="right">→</button>
+  <canvas id="gameCanvas" width="800" height="500"></canvas>
+  <div class="controls">
+    <button ontouchstart="movePlayer(-10, 0)">←</button>
+    <button ontouchstart="movePlayer(0, -10)">↑</button>
+    <button ontouchstart="movePlayer(10, 0)">→</button>
+    <button ontouchstart="hit()">Hit</button>
+    <button ontouchstart="kick()">Kick</button>
   </div>
 
   <script>
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
 
-    let player = { x: 100, y: 200 };
-    let enemy = { x: 600, y: 200 };
-    let walkFrame = 0;
-
     const socket = new WebSocket("wss://stick-man-fighter.glitch.me");
 
-    socket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === "enemyUpdate") {
-        enemy = data.position;
-      }
-    };
+    let player = { x: 100, y: 0 };
+    let enemy = { x: 600, y: 0 };
+    let walkFrame = 0;
+    let walking = false;
 
-    function sendPosition() {
-      socket.send(JSON.stringify({ type: "move", position: player }));
+    const FLOOR_Y = canvas.height - 60;
+    player.y = FLOOR_Y;
+    enemy.y = FLOOR_Y;
+
+    socket.addEventListener("open", () => {
+      console.log("Connected to WebSocket server");
+    });
+
+    socket.addEventListener("message", (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === "position") {
+        enemy.x = data.x;
+        enemy.y = data.y;
+      }
+    });
+
+    function clampPosition(p) {
+      const padding = 10;
+      const maxX = canvas.width - padding;
+      const minX = padding;
+      p.x = Math.max(minX, Math.min(maxX, p.x));
     }
 
-    function drawStickman(x, y, color = "white", walking = false) {
+    function movePlayer(dx, dy) {
+      player.x += dx;
+      player.y = FLOOR_Y;
+      clampPosition(player);
+      sendPosition();
+      walkFrame++;
+      walking = true;
+    }
+
+    function hit() {
+      console.log("Hit!");
+    }
+
+    function kick() {
+      console.log("Kick!");
+    }
+
+    function sendPosition() {
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+          type: "position",
+          x: player.x,
+          y: player.y
+        }));
+      }
+    }
+
+    function drawStickman(x, y, color = "white", isWalking = false) {
       const scale = 2;
       ctx.strokeStyle = color;
       ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.arc(x, y, 10 * scale, 0, Math.PI * 2); // head
 
+      // Head
+      ctx.arc(x, y, 10 * scale, 0, Math.PI * 2);
+
+      // Body
       ctx.moveTo(x, y + 10 * scale);
-      ctx.lineTo(x, y + 40 * scale); // body
+      ctx.lineTo(x, y + 40 * scale);
 
-      // Arms and legs animation
-      const swing = walking && walkFrame % 20 < 10 ? 10 : -10;
+      let swing = isWalking ? Math.sin(walkFrame / 5) * 10 : 0;
 
       // Arms
       ctx.moveTo(x, y + 20 * scale);
@@ -114,46 +144,11 @@
       ctx.stroke();
     }
 
-    function clampPosition(p) {
-      const buffer = 20;
-      p.x = Math.max(buffer, Math.min(canvas.width - buffer, p.x));
-      p.y = Math.max(buffer, Math.min(canvas.height - 80, p.y)); // stay above bottom
-    }
-
-    function movePlayer(dx, dy) {
-      player.x += dx;
-      player.y += dy;
-      clampPosition(player);
-      sendPosition();
-      walkFrame++;
-    }
-
-    function bindTouch(id, handler) {
-      const btn = document.getElementById(id);
-      btn.addEventListener("touchstart", (e) => {
-        e.preventDefault();
-        handler();
-      }, { passive: false });
-    }
-
-    // Movement
-    bindTouch("left", () => movePlayer(-10, 0));
-    bindTouch("right", () => movePlayer(10, 0));
-    bindTouch("up", () => movePlayer(0, -10));
-
-    // Attacks
-    bindTouch("kick", () =>
-      socket.send(JSON.stringify({ type: "attack", move: "kick" }))
-    );
-    bindTouch("hit", () =>
-      socket.send(JSON.stringify({ type: "attack", move: "hit" }))
-    );
-
     function gameLoop() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const walking = walkFrame % 30 !== 0; // trigger some animation
       drawStickman(player.x, player.y, "lime", walking);
       drawStickman(enemy.x, enemy.y, "red", false);
+      walking = false;
       requestAnimationFrame(gameLoop);
     }
 
