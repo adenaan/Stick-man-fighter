@@ -33,7 +33,7 @@
     button {
       padding: 14px;
       font-size: 16px;
-      width: 30%;
+      width: 22%;
       margin: 5px;
       background: #333;
       color: white;
@@ -52,6 +52,7 @@
   <div class="controls">
     <button ontouchstart="movePlayer(-10)">←</button>
     <button ontouchstart="movePlayer(10)">→</button>
+    <button ontouchstart="movePlayer(0, -10)">↑</button> <!-- Up (jump) button -->
     <button ontouchstart="hit()">Hit</button>
     <button ontouchstart="kick()">Kick</button>
   </div>
@@ -63,14 +64,15 @@
     const socket = new WebSocket("wss://stick-man-fighter.glitch.me");
 
     const FLOOR_Y = canvas.height - 100;
-    let player = { x: 150, y: FLOOR_Y };
-    let enemy = { x: 650, y: FLOOR_Y };
+    let player = { x: 150, y: FLOOR_Y, id: Math.random().toString(36).substr(2, 9) }; // Unique ID for player
+    let enemy = { x: 650, y: FLOOR_Y, id: null }; // Initially empty ID for enemy
 
     let walking = false;
     let walkFrame = 0;
 
-    function movePlayer(dx) {
+    function movePlayer(dx, dy = 0) {
       player.x += dx;
+      player.y += dy;
       if (player.x < 20) player.x = 20;
       if (player.x > canvas.width - 20) player.x = canvas.width - 20;
       walking = true;
@@ -90,15 +92,20 @@
       if (socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({
           type: "position",
+          id: player.id, // Send player ID to distinguish
           x: player.x,
           y: player.y
         }));
       }
     }
 
+    socket.addEventListener("open", () => {
+      console.log("Connected to WebSocket server");
+    });
+
     socket.addEventListener("message", (event) => {
       const data = JSON.parse(event.data);
-      if (data.type === "position") {
+      if (data.type === "position" && data.id !== player.id) {
         enemy.x = data.x;
         enemy.y = data.y;
       }
