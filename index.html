@@ -1,155 +1,199 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>Stickman 1v1 Fight</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, user-scalable=no">
+  <title>Stickman Fighter</title>
   <style>
-    html, body {
+    body {
       margin: 0;
-      padding: 0;
-      background: black;
-      overflow: hidden;
+      background: #111;
+      color: white;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
       touch-action: manipulation;
     }
-
     canvas {
-      display: block;
-      margin: 0 auto;
-      background: #111;
+      background: #222;
+      margin-top: 10px;
+      border: 2px solid #444;
+      touch-action: none;
     }
-
     .controls {
-      position: fixed;
-      bottom: 0;
-      width: 100%;
       display: flex;
-      justify-content: space-around;
       flex-wrap: wrap;
-      padding: 10px;
-      background: #000;
+      justify-content: center;
+      margin: 10px;
     }
-
-    button {
-      padding: 14px;
-      font-size: 16px;
-      width: 22%;
+    .button {
+      width: 70px;
+      height: 70px;
       margin: 5px;
-      background: #333;
-      color: white;
+      font-size: 18px;
+      border-radius: 10px;
       border: none;
-      border-radius: 6px;
+      background: #444;
+      color: white;
+      touch-action: manipulation;
     }
-
-    button:active {
-      background: #555;
+    .button:active {
+      background: #666;
     }
   </style>
 </head>
 <body>
-  <canvas id="gameCanvas" width="800" height="500"></canvas>
 
-  <div class="controls">
-    <button ontouchstart="movePlayer(-10)">←</button>
-    <button ontouchstart="movePlayer(10)">→</button>
-    <button ontouchstart="movePlayer(0, -10)">↑</button> <!-- Up (jump) button -->
-    <button ontouchstart="hit()">Hit</button>
-    <button ontouchstart="kick()">Kick</button>
-  </div>
+<canvas id="gameCanvas" width="360" height="480"></canvas>
 
-  <script>
-    const canvas = document.getElementById("gameCanvas");
-    const ctx = canvas.getContext("2d");
+<div class="controls">
+  <button class="button" id="left">◀️</button>
+  <button class="button" id="right">▶️</button>
+  <button class="button" id="up">⬆️</button>
+  <button class="button" id="kick">🦵</button>
+  <button class="button" id="punch">👊</button>
+</div>
 
-    const socket = new WebSocket("wss://stick-man-fighter.glitch.me");
+<script>
+  const canvas = document.getElementById("gameCanvas");
+  const ctx = canvas.getContext("2d");
 
-    const FLOOR_Y = canvas.height - 100;
-    let player = { x: 150, y: FLOOR_Y, id: Math.random().toString(36).substr(2, 9) }; // Unique ID for player
-    let enemy = { x: 650, y: FLOOR_Y, id: null }; // Initially empty ID for enemy
+  const socket = new WebSocket("wss://stick-man-fighter.glitch.me");
 
-    let walking = false;
-    let walkFrame = 0;
+  let playerId = null;
+  let myPlayer = { x: 100, y: 400, vx: 0 };
+  let otherPlayers = {};
 
-    function movePlayer(dx, dy = 0) {
-      player.x += dx;
-      player.y += dy;
-      if (player.x < 20) player.x = 20;
-      if (player.x > canvas.width - 20) player.x = canvas.width - 20;
-      walking = true;
-      walkFrame++;
-      sendPosition();
+  const speed = 3;
+
+  socket.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+
+    if (data.type === "init") {
+      playerId = data.playerId;
+    } else if (data.type === "position" && data.id !== playerId) {
+      otherPlayers[data.id] = { x: data.x, y: data.y };
+    } else if (data.type === "remove") {
+      delete otherPlayers[data.id];
+    }
+  };
+
+  function sendPosition() {
+    if (playerId) {
+      socket.send(JSON.stringify({
+        type: "position",
+        id: playerId,
+        x: myPlayer.x,
+        y: myPlayer.y
+      }));
+    }
+  }
+
+  function drawStickman(x, y, color, moving) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+
+    // Head
+    ctx.beginPath();
+    ctx.arc(x, y - 40, 10, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Body
+    ctx.beginPath();
+    ctx.moveTo(x, y - 30);
+    ctx.lineTo(x, y - 10);
+    ctx.stroke();
+
+    // Arms (swing if moving)
+    ctx.beginPath();
+    ctx.moveTo(x, y - 25);
+    ctx.lineTo(x + (moving ? 10 : 5), y - 20);
+    ctx.moveTo(x, y - 25);
+    ctx.lineTo(x - (moving ? 10 : 5), y - 20);
+    ctx.stroke();
+
+    // Legs (swing if moving)
+    ctx.beginPath();
+    ctx.moveTo(x, y - 10);
+    ctx.lineTo(x + (moving ? 10 : 5), y + 10);
+    ctx.moveTo(x, y - 10);
+    ctx.lineTo(x - (moving ? 10 : 5), y + 10);
+    ctx.stroke();
+  }
+
+  function gameLoop() {
+    // Update position
+    myPlayer.x += myPlayer.vx;
+
+    // Clamp to canvas
+    myPlayer.x = Math.max(10, Math.min(canvas.width - 10, myPlayer.x));
+
+    // Send position
+    sendPosition();
+
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw floor
+    ctx.fillStyle = "#333";
+    ctx.fillRect(0, 410, canvas.width, 5);
+
+    // Draw players
+    drawStickman(myPlayer.x, myPlayer.y, "lime", myPlayer.vx !== 0);
+    for (let id in otherPlayers) {
+      const p = otherPlayers[id];
+      drawStickman(p.x, p.y, "red", false);
     }
 
-    function hit() {
-      console.log("Hit!");
+    requestAnimationFrame(gameLoop);
+  }
+
+  gameLoop();
+
+  // Input buttons
+  const leftBtn = document.getElementById("left");
+  const rightBtn = document.getElementById("right");
+  const upBtn = document.getElementById("up");
+
+  let moveLeft = false;
+  let moveRight = false;
+
+  function updateMovement() {
+    if (moveLeft) {
+      myPlayer.vx = -speed;
+    } else if (moveRight) {
+      myPlayer.vx = speed;
+    } else {
+      myPlayer.vx = 0;
     }
+  }
 
-    function kick() {
-      console.log("Kick!");
-    }
+  // Movement button logic
+  leftBtn.addEventListener("touchstart", () => { moveLeft = true; updateMovement(); });
+  leftBtn.addEventListener("touchend", () => { moveLeft = false; updateMovement(); });
 
-    function sendPosition() {
-      if (socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({
-          type: "position",
-          id: player.id, // Send player ID to distinguish
-          x: player.x,
-          y: player.y
-        }));
-      }
-    }
+  rightBtn.addEventListener("touchstart", () => { moveRight = true; updateMovement(); });
+  rightBtn.addEventListener("touchend", () => { moveRight = false; updateMovement(); });
 
-    socket.addEventListener("open", () => {
-      console.log("Connected to WebSocket server");
-    });
+  upBtn.addEventListener("touchstart", () => {
+    myPlayer.y -= 40; // Jump
+    setTimeout(() => {
+      myPlayer.y += 40;
+    }, 300);
+  });
 
-    socket.addEventListener("message", (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === "position" && data.id !== player.id) {
-        enemy.x = data.x;
-        enemy.y = data.y;
-      }
-    });
+  // Prevent zooming on iPhone double tap
+  document.addEventListener("touchstart", function (event) {
+    if (event.touches.length > 1) event.preventDefault();
+  }, { passive: false });
 
-    function drawStickman(x, y, color = "white", animate = false) {
-      const scale = 2;
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-
-      // Head
-      ctx.arc(x, y, 10 * scale, 0, Math.PI * 2);
-
-      // Body
-      ctx.moveTo(x, y + 10 * scale);
-      ctx.lineTo(x, y + 40 * scale);
-
-      let swing = animate ? Math.sin(walkFrame / 5) * 10 : 0;
-
-      // Arms
-      ctx.moveTo(x, y + 20 * scale);
-      ctx.lineTo(x - swing, y + 30 * scale);
-      ctx.moveTo(x, y + 20 * scale);
-      ctx.lineTo(x + swing, y + 30 * scale);
-
-      // Legs
-      ctx.moveTo(x, y + 40 * scale);
-      ctx.lineTo(x - swing, y + 60 * scale);
-      ctx.moveTo(x, y + 40 * scale);
-      ctx.lineTo(x + swing, y + 60 * scale);
-
-      ctx.stroke();
-    }
-
-    function gameLoop() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      drawStickman(player.x, player.y, "lime", walking);
-      drawStickman(enemy.x, enemy.y, "red", false);
-      walking = false;
-      requestAnimationFrame(gameLoop);
-    }
-
-    gameLoop();
-  </script>
+  let lastTouchEnd = 0;
+  document.addEventListener("touchend", function (event) {
+    const now = new Date().getTime();
+    if (now - lastTouchEnd <= 300) event.preventDefault();
+    lastTouchEnd = now;
+  }, false);
+</script>
 </body>
 </html>
