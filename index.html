@@ -76,6 +76,16 @@
     let players = {};
     let myId = null;
 
+    // Listen to player data updates
+    socket.on("playersData", (data) => {
+      players = data;
+      if (!myId) {
+        myId = socket.id;
+      }
+      drawPlayers();
+    });
+
+    // Handle movement controls
     document.getElementById("left").addEventListener("touchstart", () => {
       controls.left = true;
       socket.emit("move", controls);
@@ -93,95 +103,67 @@
       socket.emit("move", controls);
     });
 
-    document.getElementById("jump").addEventListener("click", () => {
-      socket.emit("jump");
-    });
-
-    document.getElementById("punch").addEventListener("click", () => {
-      socket.emit("attack", { type: "punch" });
-    });
-
-    document.getElementById("kick").addEventListener("click", () => {
-      socket.emit("attack", { type: "kick" });
-    });
-
-    socket.on("playersData", (data) => {
-      players = data;
-      if (!myId) {
-        myId = socket.id;
-      }
-    });
-
-    function drawStickman(p) {
-      const headRadius = 10;
-      const bodyLength = 30;
-      const legLength = 20;
-
-      // Shake effect if hit
-      const offset = p.hit ? Math.random() * 4 - 2 : 0;
-
-      // Draw head
-      ctx.beginPath();
-      ctx.arc(p.x + offset, p.y - bodyLength - headRadius, headRadius, 0, Math.PI * 2);
-      ctx.fillStyle = p.color;
-      ctx.fill();
-
-      // Body
-      ctx.beginPath();
-      ctx.moveTo(p.x + offset, p.y - bodyLength);
-      ctx.lineTo(p.x + offset, p.y);
-      ctx.strokeStyle = p.color;
-      ctx.lineWidth = 2;
-      ctx.stroke();
-
-      // Arms
-      const armSwing = p.movingLeft || p.movingRight ? Math.sin(Date.now() / 100) * 10 : 0;
-      ctx.beginPath();
-      ctx.moveTo(p.x + offset, p.y - bodyLength + 5);
-      ctx.lineTo(p.x + offset - 10, p.y - bodyLength + 10 + armSwing);
-      ctx.moveTo(p.x + offset, p.y - bodyLength + 5);
-      ctx.lineTo(p.x + offset + 10, p.y - bodyLength + 10 - armSwing);
-      ctx.stroke();
-
-      // Legs
-      ctx.beginPath();
-      ctx.moveTo(p.x + offset, p.y);
-      ctx.lineTo(p.x + offset - 10 + armSwing, p.y + legLength);
-      ctx.moveTo(p.x + offset, p.y);
-      ctx.lineTo(p.x + offset + 10 - armSwing, p.y + legLength);
-      ctx.stroke();
-
-      // Punch/Kick
-      if (p.isPunching) {
-        ctx.beginPath();
-        ctx.moveTo(p.x + offset, p.y - bodyLength + 5);
-        ctx.lineTo(p.facing === "right" ? p.x + 20 : p.x - 20, p.y - bodyLength + 5);
-        ctx.stroke();
-      }
-      if (p.isKicking) {
-        ctx.beginPath();
-        ctx.moveTo(p.x + offset, p.y);
-        ctx.lineTo(p.facing === "right" ? p.x + 20 : p.x - 20, p.y + 10);
-        ctx.stroke();
-      }
-    }
-
-    function gameLoop() {
+    // Draw players on canvas
+    function drawPlayers() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       // Floor
       ctx.fillStyle = "#333";
       ctx.fillRect(0, canvas.height - 20, canvas.width, 20);
 
+      // Draw all players
       for (let id in players) {
         let p = players[id];
-        // Constrain to canvas
+
+        // Constrain player to canvas boundaries
         if (p.x < 10) p.x = 10;
         if (p.x > canvas.width - 10) p.x = canvas.width - 10;
 
+        // Draw stickman
         drawStickman(p);
       }
+    }
 
+    // Draw stickman (a simple representation)
+    function drawStickman(p) {
+      const headRadius = 10;
+      const bodyLength = 30;
+      const legLength = 20;
+
+      // Draw head
+      ctx.beginPath();
+      ctx.arc(p.x, p.y - bodyLength - headRadius, headRadius, 0, Math.PI * 2);
+      ctx.fillStyle = p.color;
+      ctx.fill();
+
+      // Draw body
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y - bodyLength);
+      ctx.lineTo(p.x, p.y);
+      ctx.strokeStyle = p.color;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Draw arms
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y - bodyLength + 5);
+      ctx.lineTo(p.x - 10, p.y - bodyLength + 10);
+      ctx.moveTo(p.x, p.y - bodyLength + 5);
+      ctx.lineTo(p.x + 10, p.y - bodyLength + 10);
+      ctx.stroke();
+
+      // Draw legs
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(p.x - 10, p.y + legLength);
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(p.x + 10, p.y + legLength);
+      ctx.stroke();
+    }
+
+    // Start game loop
+    function gameLoop() {
+      drawPlayers();
       requestAnimationFrame(gameLoop);
     }
 
