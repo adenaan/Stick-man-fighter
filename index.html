@@ -1,122 +1,227 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Stick Man Fighter</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, user-scalable=no">
+  <title>Stickman Fighter</title>
   <style>
-    html, body {
+    body {
       margin: 0;
-      padding: 0;
-      overflow: hidden;
-      background: black;
+      background: #111;
+      color: white;
       font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      touch-action: manipulation;
     }
     canvas {
-      display: block;
-      margin: 0 auto;
       background: #222;
+      margin-top: 10px;
+      border: 2px solid #444;
+      touch-action: none;
     }
     .controls {
       display: flex;
-      justify-content: center;
       flex-wrap: wrap;
-      gap: 10px;
-      padding: 10px;
+      justify-content: center;
+      margin: 10px;
     }
-    .btn {
-      width: 80px;
-      height: 60px;
-      font-size: 20px;
+    .button {
+      width: 70px;
+      height: 70px;
+      margin: 5px;
+      font-size: 18px;
+      border-radius: 10px;
+      border: none;
       background: #444;
       color: white;
-      border: none;
-      border-radius: 8px;
+      touch-action: manipulation;
     }
-    .btn:active {
+    .button:active {
       background: #666;
     }
   </style>
 </head>
 <body>
-  <canvas id="gameCanvas" width="600" height="400"></canvas>
-  <div class="controls">
-    <button class="btn" id="leftBtn">←</button>
-    <button class="btn" id="rightBtn">→</button>
-    <button class="btn" id="hitBtn">HIT</button>
-    <button class="btn" id="kickBtn">KICK</button>
-  </div>
 
-  <script src="https://cdn.socket.io/4.3.2/socket.io.min.js"></script>
-  <script>
-    const socket = io("https://stick-man-fighter.glitch.me");
+<canvas id="gameCanvas" width="360" height="480"></canvas>
 
-    const canvas = document.getElementById("gameCanvas");
-    const ctx = canvas.getContext("2d");
+<div class="controls">
+  <button class="button" id="left">◀️</button>
+  <button class="button" id="right">▶️</button>
+  <button class="button" id="up">⬆️</button>
+  <button class="button" id="kick">🦵</button>
+  <button class="button" id="punch">👊</button>
+</div>
 
-    let playerId = null;
-    let players = {};
+<script>
+  const canvas = document.getElementById("gameCanvas");
+  const ctx = canvas.getContext("2d");
 
-    socket.on("connect", () => {
-      playerId = socket.id;
-    });
+  const socket = new WebSocket("wss://stick-man-fighter.glitch.me");
 
-    socket.on("players", (serverPlayers) => {
-      players = serverPlayers;
-      drawPlayers();
-    });
+  let playerId = null;
+  let myPlayer = { x: 100, y: 400, vx: 0, isPunching: false, isKicking: false };
+  let otherPlayers = {};
 
-    socket.on("update", (serverPlayers) => {
-      players = serverPlayers;
-      drawPlayers();
-    });
+  const speed = 3;
 
-    function drawPlayers() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      for (let id in players) {
-        const p = players[id];
-        ctx.fillStyle = (id === playerId) ? "green" : "red";
-        ctx.fillRect(p.x, p.y, 30, 30);
+  socket.onmessage = (event) => {
+    const data = JSON.parse(event.data);
 
-        if (p.action === 'hit') {
-          ctx.fillStyle = 'yellow';
-          ctx.fillText('👊', p.x + 35, p.y + 20);
-        } else if (p.action === 'kick') {
-          ctx.fillStyle = 'orange';
-          ctx.fillText('🦵', p.x + 35, p.y + 20);
-        }
-      }
+    if (data.type === "init") {
+      playerId = data.playerId;
+    } else if (data.type === "position" && data.id !== playerId) {
+      otherPlayers[data.id] = { x: data.x, y: data.y, isPunching: data.isPunching, isKicking: data.isKicking };
+    } else if (data.type === "remove") {
+      delete otherPlayers[data.id];
+    }
+  };
+
+  function sendPosition() {
+    if (playerId) {
+      socket.send(JSON.stringify({
+        type: "position",
+        id: playerId,
+        x: myPlayer.x,
+        y: myPlayer.y,
+        isPunching: myPlayer.isPunching,
+        isKicking: myPlayer.isKicking
+      }));
+    }
+  }
+
+  function drawStickman(x, y, color, isPunching, isKicking) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+
+    // Head
+    ctx.beginPath();
+    ctx.arc(x, y - 40, 10, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Body
+    ctx.beginPath();
+    ctx.moveTo(x, y - 30);
+    ctx.lineTo(x, y - 10);
+    ctx.stroke();
+
+    // Arms (swing if punching or kicking)
+    if (isPunching) {
+      ctx.beginPath();
+      ctx.moveTo(x, y - 25);
+      ctx.lineTo(x + 15, y - 30); // Punch forward
+      ctx.stroke();
+    } else if (isKicking) {
+      ctx.beginPath();
+      ctx.moveTo(x, y - 10);
+      ctx.lineTo(x + 15, y + 10); // Kick forward
+      ctx.stroke();
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(x, y - 25);
+      ctx.lineTo(x + 5, y - 20); // Neutral arm
+      ctx.moveTo(x, y - 25);
+      ctx.lineTo(x - 5, y - 20); // Neutral arm
+      ctx.stroke();
     }
 
-    // Clear action after brief time
-    setInterval(() => {
-      socket.emit("clearAction");
-    }, 500);
+    // Legs (swing if moving)
+    ctx.beginPath();
+    ctx.moveTo(x, y - 10);
+    ctx.lineTo(x + 10, y + 10);
+    ctx.moveTo(x, y - 10);
+    ctx.lineTo(x - 10, y + 10);
+    ctx.stroke();
+  }
 
-    // Keyboard controls
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "ArrowRight") socket.emit("move", { dx: 5 });
-      if (e.key === "ArrowLeft") socket.emit("move", { dx: -5 });
-      if (e.key.toLowerCase() === "a") socket.emit("action", "hit");
-      if (e.key.toLowerCase() === "s") socket.emit("action", "kick");
-    });
+  function gameLoop() {
+    // Update position
+    myPlayer.x += myPlayer.vx;
 
-    // Touch controls
-    document.getElementById("leftBtn").addEventListener("touchstart", () => {
-      socket.emit("move", { dx: -5 });
-    });
+    // Clamp to canvas
+    myPlayer.x = Math.max(10, Math.min(canvas.width - 10, myPlayer.x));
 
-    document.getElementById("rightBtn").addEventListener("touchstart", () => {
-      socket.emit("move", { dx: 5 });
-    });
+    // Send position
+    sendPosition();
 
-    document.getElementById("hitBtn").addEventListener("touchstart", () => {
-      socket.emit("action", "hit");
-    });
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    document.getElementById("kickBtn").addEventListener("touchstart", () => {
-      socket.emit("action", "kick");
-    });
-  </script>
+    // Draw floor
+    ctx.fillStyle = "#333";
+    ctx.fillRect(0, 410, canvas.width, 5);
+
+    // Draw players
+    drawStickman(myPlayer.x, myPlayer.y, "lime", myPlayer.isPunching, myPlayer.isKicking);
+    for (let id in otherPlayers) {
+      const p = otherPlayers[id];
+      drawStickman(p.x, p.y, "red", p.isPunching, p.isKicking);
+    }
+
+    requestAnimationFrame(gameLoop);
+  }
+
+  gameLoop();
+
+  // Input buttons
+  const leftBtn = document.getElementById("left");
+  const rightBtn = document.getElementById("right");
+  const upBtn = document.getElementById("up");
+  const kickBtn = document.getElementById("kick");
+  const punchBtn = document.getElementById("punch");
+
+  let moveLeft = false;
+  let moveRight = false;
+
+  function updateMovement() {
+    if (moveLeft) {
+      myPlayer.vx = -speed;
+    } else if (moveRight) {
+      myPlayer.vx = speed;
+    } else {
+      myPlayer.vx = 0;
+    }
+  }
+
+  // Movement button logic
+  leftBtn.addEventListener("touchstart", () => { moveLeft = true; updateMovement(); });
+  leftBtn.addEventListener("touchend", () => { moveLeft = false; updateMovement(); });
+
+  rightBtn.addEventListener("touchstart", () => { moveRight = true; updateMovement(); });
+  rightBtn.addEventListener("touchend", () => { moveRight = false; updateMovement(); });
+
+  upBtn.addEventListener("touchstart", () => {
+    myPlayer.y -= 40; // Jump
+    setTimeout(() => {
+      myPlayer.y += 40;
+    }, 300);
+  });
+
+  // Punch and kick button logic
+  punchBtn.addEventListener("touchstart", () => {
+    myPlayer.isPunching = true;
+    setTimeout(() => { myPlayer.isPunching = false; }, 300); // Punch duration
+  });
+
+  kickBtn.addEventListener("touchstart", () => {
+    myPlayer.isKicking = true;
+    setTimeout(() => { myPlayer.isKicking = false; }, 300); // Kick duration
+  });
+
+  // Prevent zooming on iPhone double tap
+  document.addEventListener("touchstart", function (event) {
+    if (event.touches.length > 1) event.preventDefault();
+  }, { passive: false });
+
+  let lastTouchEnd = 0;
+  document.addEventListener("touchend", function (event) {
+    const now = new Date().getTime();
+    if (now - lastTouchEnd <= 300) event.preventDefault();
+    lastTouchEnd = now;
+  }, false);
+</script>
+
 </body>
 </html>
