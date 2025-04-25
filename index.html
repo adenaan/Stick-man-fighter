@@ -17,7 +17,7 @@
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      touch-action: manipulation; /* extra touch behavior fix */
+      touch-action: manipulation;
     }
 
     canvas {
@@ -62,7 +62,6 @@
     <button id="kick">Kick</button>
     <button id="hit">Hit</button>
     <button id="left">←</button>
-    <button id="down">↓</button>
     <button id="right">→</button>
   </div>
 
@@ -72,6 +71,7 @@
 
     let player = { x: 100, y: 200 };
     let enemy = { x: 600, y: 200 };
+    let walkFrame = 0;
 
     const socket = new WebSocket("wss://stick-man-fighter.glitch.me");
 
@@ -86,52 +86,60 @@
       socket.send(JSON.stringify({ type: "move", position: player }));
     }
 
-    function drawStickman(x, y, color = "white") {
+    function drawStickman(x, y, color = "white", walking = false) {
       const scale = 2;
       ctx.strokeStyle = color;
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.arc(x, y, 10 * scale, 0, Math.PI * 2); // head
+
       ctx.moveTo(x, y + 10 * scale);
       ctx.lineTo(x, y + 40 * scale); // body
+
+      // Arms and legs animation
+      const swing = walking && walkFrame % 20 < 10 ? 10 : -10;
+
+      // Arms
       ctx.moveTo(x, y + 20 * scale);
-      ctx.lineTo(x - 10 * scale, y + 30 * scale); // left arm
+      ctx.lineTo(x - swing, y + 30 * scale);
       ctx.moveTo(x, y + 20 * scale);
-      ctx.lineTo(x + 10 * scale, y + 30 * scale); // right arm
+      ctx.lineTo(x + swing, y + 30 * scale);
+
+      // Legs
       ctx.moveTo(x, y + 40 * scale);
-      ctx.lineTo(x - 10 * scale, y + 60 * scale); // left leg
+      ctx.lineTo(x - swing, y + 60 * scale);
       ctx.moveTo(x, y + 40 * scale);
-      ctx.lineTo(x + 10 * scale, y + 60 * scale); // right leg
+      ctx.lineTo(x + swing, y + 60 * scale);
+
       ctx.stroke();
     }
 
-    function gameLoop() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      drawStickman(player.x, player.y, "lime");
-      drawStickman(enemy.x, enemy.y, "red");
-      requestAnimationFrame(gameLoop);
+    function clampPosition(p) {
+      const buffer = 20;
+      p.x = Math.max(buffer, Math.min(canvas.width - buffer, p.x));
+      p.y = Math.max(buffer, Math.min(canvas.height - 80, p.y)); // stay above bottom
     }
 
     function movePlayer(dx, dy) {
       player.x += dx;
       player.y += dy;
+      clampPosition(player);
       sendPosition();
+      walkFrame++;
     }
 
-    // 🔒 Helper to bind touch events with preventDefault
     function bindTouch(id, handler) {
       const btn = document.getElementById(id);
       btn.addEventListener("touchstart", (e) => {
-        e.preventDefault(); // prevent double-tap zoom
+        e.preventDefault();
         handler();
-      }, { passive: false }); // required for iOS
+      }, { passive: false });
     }
 
     // Movement
     bindTouch("left", () => movePlayer(-10, 0));
     bindTouch("right", () => movePlayer(10, 0));
     bindTouch("up", () => movePlayer(0, -10));
-    bindTouch("down", () => movePlayer(0, 10));
 
     // Attacks
     bindTouch("kick", () =>
@@ -140,6 +148,14 @@
     bindTouch("hit", () =>
       socket.send(JSON.stringify({ type: "attack", move: "hit" }))
     );
+
+    function gameLoop() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const walking = walkFrame % 30 !== 0; // trigger some animation
+      drawStickman(player.x, player.y, "lime", walking);
+      drawStickman(enemy.x, enemy.y, "red", false);
+      requestAnimationFrame(gameLoop);
+    }
 
     gameLoop();
   </script>
