@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
   <title>Stickman Fight</title>
   <style>
     html, body {
@@ -16,6 +17,7 @@
       flex-direction: column;
       justify-content: center;
       align-items: center;
+      touch-action: manipulation; /* extra touch behavior fix */
     }
 
     canvas {
@@ -85,7 +87,7 @@
     }
 
     function drawStickman(x, y, color = "white") {
-      const scale = 2; // Make stickman larger
+      const scale = 2;
       ctx.strokeStyle = color;
       ctx.lineWidth = 3;
       ctx.beginPath();
@@ -116,16 +118,28 @@
       sendPosition();
     }
 
-    document.getElementById("left").ontouchstart = () => movePlayer(-10, 0);
-    document.getElementById("right").ontouchstart = () => movePlayer(10, 0);
-    document.getElementById("up").ontouchstart = () => movePlayer(0, -10);
-    document.getElementById("down").ontouchstart = () => movePlayer(0, 10);
-    document.getElementById("kick").ontouchstart = () => {
-      socket.send(JSON.stringify({ type: "attack", move: "kick" }));
-    };
-    document.getElementById("hit").ontouchstart = () => {
-      socket.send(JSON.stringify({ type: "attack", move: "hit" }));
-    };
+    // 🔒 Helper to bind touch events with preventDefault
+    function bindTouch(id, handler) {
+      const btn = document.getElementById(id);
+      btn.addEventListener("touchstart", (e) => {
+        e.preventDefault(); // prevent double-tap zoom
+        handler();
+      }, { passive: false }); // required for iOS
+    }
+
+    // Movement
+    bindTouch("left", () => movePlayer(-10, 0));
+    bindTouch("right", () => movePlayer(10, 0));
+    bindTouch("up", () => movePlayer(0, -10));
+    bindTouch("down", () => movePlayer(0, 10));
+
+    // Attacks
+    bindTouch("kick", () =>
+      socket.send(JSON.stringify({ type: "attack", move: "kick" }))
+    );
+    bindTouch("hit", () =>
+      socket.send(JSON.stringify({ type: "attack", move: "hit" }))
+    );
 
     gameLoop();
   </script>
