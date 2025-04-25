@@ -1,173 +1,145 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
   <title>Stick Man Fighter</title>
+  <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.3.2/dist/socket.io.min.js"></script>
   <style>
     body {
       margin: 0;
-      background: #111;
-      overflow: hidden;
-      font-family: sans-serif;
-      touch-action: manipulation;
+      padding: 0;
+      background-color: #f4f4f4;
+      font-family: Arial, sans-serif;
     }
 
     #gameCanvas {
       display: block;
       margin: 0 auto;
-      background: #222;
-      border: 2px solid #fff;
-      touch-action: none;
+      background-color: #e0e0e0;
     }
 
-    .controls {
-      display: flex;
-      justify-content: space-around;
-      flex-wrap: wrap;
-      padding: 10px;
-      background: #000;
+    #buttons {
       position: fixed;
-      bottom: 0;
-      width: 100%;
-      box-sizing: border-box;
-      z-index: 10;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 20px;
     }
 
     button {
-      width: 70px;
-      height: 70px;
-      font-size: 18px;
-      margin: 5px;
-      border-radius: 10px;
-      border: none;
-      background: #444;
+      padding: 10px;
+      font-size: 16px;
+      background-color: #333;
       color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
     }
 
     button:active {
-      background: #666;
+      background-color: #555;
     }
   </style>
 </head>
 <body>
-  <canvas id="gameCanvas" width="360" height="480"></canvas>
+  <canvas id="gameCanvas" width="320" height="480"></canvas>
 
-  <div class="controls">
-    <button id="left">⬅️</button>
-    <button id="right">➡️</button>
-    <button id="jump">⬆️</button>
-    <button id="punch">👊</button>
-    <button id="kick">🦵</button>
+  <!-- Movement buttons -->
+  <div id="buttons">
+    <button id="leftBtn">Left</button>
+    <button id="upBtn">Up</button>
+    <button id="rightBtn">Right</button>
+    <button id="kickBtn">Kick</button>
+    <button id="punchBtn">Punch</button>
   </div>
 
-  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
   <script>
-    const socket = io("https://stick-man-fighter.glitch.me");
+    // Connect to the server
+    const socket = io('https://stick-man-fighter.glitch.me'); // Update with your Glitch URL
 
-    const canvas = document.getElementById("gameCanvas");
-    const ctx = canvas.getContext("2d");
+    // Initialize canvas and context
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
 
-    const controls = {
-      left: false,
-      right: false
+    // Player data (initial positions)
+    let players = {
+      player1: { x: 50, y: canvas.height - 60, color: 'green', id: 'player1', moving: false },
+      player2: { x: canvas.width - 100, y: canvas.height - 60, color: 'red', id: 'player2', moving: false }
     };
 
-    let players = {};
-    let myId = null;
+    // Listen for player position updates
+    socket.on('playerData', (player) => {
+      // Update the player position
+      players[player.id].x = player.x;
+      players[player.id].y = player.y;
 
-    // Listen to player data updates
-    socket.on("playersData", (data) => {
-      players = data;
-      if (!myId) {
-        myId = socket.id;
-      }
-      drawPlayers();
-    });
-
-    // Handle movement controls
-    document.getElementById("left").addEventListener("touchstart", () => {
-      controls.left = true;
-      socket.emit("move", controls);
-    });
-    document.getElementById("right").addEventListener("touchstart", () => {
-      controls.right = true;
-      socket.emit("move", controls);
-    });
-    document.getElementById("left").addEventListener("touchend", () => {
-      controls.left = false;
-      socket.emit("move", controls);
-    });
-    document.getElementById("right").addEventListener("touchend", () => {
-      controls.right = false;
-      socket.emit("move", controls);
-    });
-
-    // Draw players on canvas
-    function drawPlayers() {
+      // Clear canvas and redraw players
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      // Floor
-      ctx.fillStyle = "#333";
-      ctx.fillRect(0, canvas.height - 20, canvas.width, 20);
-
-      // Draw all players
-      for (let id in players) {
-        let p = players[id];
-
-        // Constrain player to canvas boundaries
-        if (p.x < 10) p.x = 10;
-        if (p.x > canvas.width - 10) p.x = canvas.width - 10;
-
-        // Draw stickman
-        drawStickman(p);
-      }
-    }
-
-    // Draw stickman (a simple representation)
-    function drawStickman(p) {
-      const headRadius = 10;
-      const bodyLength = 30;
-      const legLength = 20;
-
-      // Draw head
-      ctx.beginPath();
-      ctx.arc(p.x, p.y - bodyLength - headRadius, headRadius, 0, Math.PI * 2);
-      ctx.fillStyle = p.color;
-      ctx.fill();
-
-      // Draw body
-      ctx.beginPath();
-      ctx.moveTo(p.x, p.y - bodyLength);
-      ctx.lineTo(p.x, p.y);
-      ctx.strokeStyle = p.color;
-      ctx.lineWidth = 2;
-      ctx.stroke();
-
-      // Draw arms
-      ctx.beginPath();
-      ctx.moveTo(p.x, p.y - bodyLength + 5);
-      ctx.lineTo(p.x - 10, p.y - bodyLength + 10);
-      ctx.moveTo(p.x, p.y - bodyLength + 5);
-      ctx.lineTo(p.x + 10, p.y - bodyLength + 10);
-      ctx.stroke();
-
-      // Draw legs
-      ctx.beginPath();
-      ctx.moveTo(p.x, p.y);
-      ctx.lineTo(p.x - 10, p.y + legLength);
-      ctx.moveTo(p.x, p.y);
-      ctx.lineTo(p.x + 10, p.y + legLength);
-      ctx.stroke();
-    }
-
-    // Start game loop
-    function gameLoop() {
       drawPlayers();
-      requestAnimationFrame(gameLoop);
+    });
+
+    // Draw players on the canvas
+    function drawPlayers() {
+      // Draw player 1
+      ctx.fillStyle = players.player1.color;
+      ctx.fillRect(players.player1.x, players.player1.y, 50, 50);
+
+      // Draw player 2
+      ctx.fillStyle = players.player2.color;
+      ctx.fillRect(players.player2.x, players.player2.y, 50, 50);
     }
 
-    gameLoop();
+    // Handle button clicks for movement and actions
+    document.getElementById('leftBtn').addEventListener('click', () => {
+      movePlayer('left');
+    });
+
+    document.getElementById('rightBtn').addEventListener('click', () => {
+      movePlayer('right');
+    });
+
+    document.getElementById('upBtn').addEventListener('click', () => {
+      movePlayer('up');
+    });
+
+    document.getElementById('kickBtn').addEventListener('click', () => {
+      handleAction('kick');
+    });
+
+    document.getElementById('punchBtn').addEventListener('click', () => {
+      handleAction('punch');
+    });
+
+    // Function to move player
+    function movePlayer(direction) {
+      // Player 1 moves based on the direction
+      const player = players.player1;
+
+      if (direction === 'left' && player.x > 0) {
+        player.x -= 10;
+      } else if (direction === 'right' && player.x < canvas.width - 50) {
+        player.x += 10;
+      } else if (direction === 'up' && player.y > 0) {
+        player.y -= 10;
+      }
+
+      // Emit updated player position to server
+      socket.emit('move', { id: player.id, x: player.x, y: player.y });
+    }
+
+    // Function to handle player actions (e.g., punch, kick)
+    function handleAction(action) {
+      // Just for now, log action to console
+      console.log(`Player 1 performed action: ${action}`);
+
+      // Emit action to server for further handling (like animations)
+      socket.emit('action', { id: 'player1', action });
+    }
+
+    // Initial player rendering
+    drawPlayers();
   </script>
 </body>
 </html>
