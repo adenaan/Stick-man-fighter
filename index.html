@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stickman Fight</title>
+  <style>
+    body { margin: 0; background: #111; color: #fff; font-family: sans-serif; }
+    canvas { display: block; margin: 0 auto; background: #222; }
+    #controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      padding: 10px;
+    }
+    button {
+      margin: 5px;
+      padding: 20px;
+      font-size: 18px;
+      border-radius: 10px;
+      border: none;
+      background: #333;
+      color: white;
+    }
+    button:active { background: #555; }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas" width="800" height="400"></canvas>
+
+  <div id="controls">
+    <button id="left">←</button>
+    <button id="right">→</button>
+    <button id="up">↑</button>
+    <button id="down">↓</button>
+    <button id="kick">Kick</button>
+    <button id="hit">Hit</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    let player = { x: 100, y: 300 };
+    let enemy = { x: 600, y: 300 };
+
+    const socket = new WebSocket("wss://stick-man-fighter.glitch.me");
+
+    socket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === "enemyUpdate") {
+        enemy = data.position;
+      }
+    };
+
+    function sendPosition() {
+      socket.send(JSON.stringify({ type: "move", position: player }));
+    }
+
+    function drawStickman(x, y, color = "white") {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(x, y, 10, 0, Math.PI * 2); // head
+      ctx.moveTo(x, y + 10);
+      ctx.lineTo(x, y + 40); // body
+      ctx.moveTo(x, y + 20);
+      ctx.lineTo(x - 10, y + 30); // left arm
+      ctx.moveTo(x, y + 20);
+      ctx.lineTo(x + 10, y + 30); // right arm
+      ctx.moveTo(x, y + 40);
+      ctx.lineTo(x - 10, y + 60); // left leg
+      ctx.moveTo(x, y + 40);
+      ctx.lineTo(x + 10, y + 60); // right leg
+      ctx.stroke();
+    }
+
+    function gameLoop() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawStickman(player.x, player.y, "lime");
+      drawStickman(enemy.x, enemy.y, "red");
+      requestAnimationFrame(gameLoop);
+    }
+
+    function movePlayer(dx, dy) {
+      player.x += dx;
+      player.y += dy;
+      sendPosition();
+    }
+
+    document.getElementById("left").ontouchstart = () => movePlayer(-10, 0);
+    document.getElementById("right").ontouchstart = () => movePlayer(10, 0);
+    document.getElementById("up").ontouchstart = () => movePlayer(0, -10);
+    document.getElementById("down").ontouchstart = () => movePlayer(0, 10);
+
+    document.getElementById("kick").ontouchstart = () => {
+      socket.send(JSON.stringify({ type: "attack", move: "kick" }));
+    };
+    document.getElementById("hit").ontouchstart = () => {
+      socket.send(JSON.stringify({ type: "attack", move: "hit" }));
+    };
+
+    gameLoop();
+  </script>
+</body>
+</html>
