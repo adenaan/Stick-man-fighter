@@ -2,39 +2,64 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Stickman Fight</title>
   <style>
-    body { margin: 0; background: #111; color: #fff; font-family: sans-serif; }
-    canvas { display: block; margin: 0 auto; background: #222; }
-    #controls {
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #111;
+      color: #fff;
+      font-family: sans-serif;
+      overflow: hidden;
+      height: 100%;
       display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      padding: 10px;
+      flex-direction: column;
+      align-items: center;
     }
-    button {
-      margin: 5px;
-      padding: 20px;
-      font-size: 18px;
-      border-radius: 10px;
+
+    canvas {
+      background: #222;
+      width: 100%;
+      height: auto;
+      max-height: 60vh;
+    }
+
+    #controls {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      width: 100%;
+      max-width: 500px;
+      padding: 10px;
+      box-sizing: border-box;
+    }
+
+    #controls button {
+      padding: 15px;
+      font-size: 1.2em;
       border: none;
+      border-radius: 10px;
       background: #333;
       color: white;
+      flex: 1;
     }
-    button:active { background: #555; }
+
+    #controls button:active {
+      background: #555;
+    }
   </style>
 </head>
 <body>
   <canvas id="gameCanvas" width="800" height="400"></canvas>
 
   <div id="controls">
-    <button id="left">←</button>
-    <button id="right">→</button>
     <button id="up">↑</button>
-    <button id="down">↓</button>
     <button id="kick">Kick</button>
     <button id="hit">Hit</button>
+    <button id="left">←</button>
+    <button id="down">↓</button>
+    <button id="right">→</button>
   </div>
 
   <script>
@@ -92,7 +117,6 @@
     document.getElementById("right").ontouchstart = () => movePlayer(10, 0);
     document.getElementById("up").ontouchstart = () => movePlayer(0, -10);
     document.getElementById("down").ontouchstart = () => movePlayer(0, 10);
-
     document.getElementById("kick").ontouchstart = () => {
       socket.send(JSON.stringify({ type: "attack", move: "kick" }));
     };
@@ -101,6 +125,12 @@
     };
 
     gameLoop();
+
+    // Optional: Adjust canvas size on resize
+    window.addEventListener("resize", () => {
+      canvas.width = canvas.clientWidth;
+      canvas.height = canvas.clientHeight;
+    });
   </script>
 </body>
 </html>
