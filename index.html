@@ -64,30 +64,48 @@
 
   const socket = io("https://stick-man-fighter.glitch.me");
 
-  let playerId = null;
+  let socketId = null;
   let myPlayer = { x: 100, y: 400, vx: 0, isPunching: false, isKicking: false, color: "lime" };
   let otherPlayers = {};
   const speed = 3;
 
   socket.on("init", (data) => {
-    playerId = data.playerId;
+    socketId = data.id;
     myPlayer.color = data.color;
   });
 
-  socket.on("position", (data) => {
-    if (data.id !== playerId) {
-      otherPlayers[data.id] = { x: data.x, y: data.y, isPunching: data.isPunching, isKicking: data.isKicking, color: data.color };
+  socket.on("newPlayer", (data) => {
+    if (data.id !== socketId) {
+      otherPlayers[data.id] = {
+        x: 100,
+        y: 400,
+        isPunching: false,
+        isKicking: false,
+        color: data.color
+      };
     }
   });
 
-  socket.on("remove", (id) => {
-    delete otherPlayers[id];
+  socket.on("position", (data) => {
+    if (data.id !== socketId) {
+      otherPlayers[data.id] = {
+        x: data.x,
+        y: data.y,
+        isPunching: data.isPunching,
+        isKicking: data.isKicking,
+        color: data.color
+      };
+    }
+  });
+
+  socket.on("remove", (data) => {
+    delete otherPlayers[data.id];
   });
 
   function sendPosition() {
-    if (playerId) {
+    if (socketId) {
       socket.emit("position", {
-        id: playerId,
+        id: socketId,
         x: myPlayer.x,
         y: myPlayer.y,
         isPunching: myPlayer.isPunching,
