@@ -62,7 +62,7 @@
   const socket = new WebSocket("wss://stick-man-fighter.glitch.me");
 
   let playerId = null;
-  let myPlayer = { x: 100, y: 400, vx: 0, isPunching: false, isKicking: false };
+  let myPlayer = { x: 100, y: 400, vx: 0, isPunching: false, isKicking: false, color: "lime" };
   let otherPlayers = {};
 
   const speed = 3;
@@ -72,8 +72,9 @@
 
     if (data.type === "init") {
       playerId = data.playerId;
+      myPlayer.color = data.color;  // Assign color based on the player
     } else if (data.type === "position" && data.id !== playerId) {
-      otherPlayers[data.id] = { x: data.x, y: data.y, isPunching: data.isPunching, isKicking: data.isKicking };
+      otherPlayers[data.id] = { x: data.x, y: data.y, isPunching: data.isPunching, isKicking: data.isKicking, color: data.color };
     } else if (data.type === "remove") {
       delete otherPlayers[data.id];
     }
@@ -87,7 +88,8 @@
         x: myPlayer.x,
         y: myPlayer.y,
         isPunching: myPlayer.isPunching,
-        isKicking: myPlayer.isKicking
+        isKicking: myPlayer.isKicking,
+        color: myPlayer.color
       }));
     }
   }
@@ -154,10 +156,10 @@
     ctx.fillRect(0, 410, canvas.width, 5);
 
     // Draw players
-    drawStickman(myPlayer.x, myPlayer.y, "lime", myPlayer.isPunching, myPlayer.isKicking);
+    drawStickman(myPlayer.x, myPlayer.y, myPlayer.color, myPlayer.isPunching, myPlayer.isKicking);
     for (let id in otherPlayers) {
       const p = otherPlayers[id];
-      drawStickman(p.x, p.y, "red", p.isPunching, p.isKicking);
+      drawStickman(p.x, p.y, p.color, p.isPunching, p.isKicking);
     }
 
     requestAnimationFrame(gameLoop);
