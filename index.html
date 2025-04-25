@@ -16,7 +16,7 @@
     }
     canvas {
       display: block;
-      margin: 0 auto;
+      margin: 40px auto 100px auto; /* space on top and bottom */
       background: #111;
     }
     .controls {
@@ -44,7 +44,8 @@
   </style>
 </head>
 <body>
-  <canvas id="gameCanvas" width="800" height="500"></canvas>
+  <canvas id="gameCanvas" width="800" height="600"></canvas>
+
   <div class="controls">
     <button ontouchstart="movePlayer(-10, 0)">←</button>
     <button ontouchstart="movePlayer(0, -10)">↑</button>
@@ -59,14 +60,12 @@
 
     const socket = new WebSocket("wss://stick-man-fighter.glitch.me");
 
-    let player = { x: 100, y: 0 };
-    let enemy = { x: 600, y: 0 };
     let walkFrame = 0;
     let walking = false;
 
-    const FLOOR_Y = canvas.height - 60;
-    player.y = FLOOR_Y;
-    enemy.y = FLOOR_Y;
+    const FLOOR_Y = canvas.height - 80;
+    let player = { x: 150, y: FLOOR_Y };
+    let enemy = { x: 650, y: FLOOR_Y };
 
     socket.addEventListener("open", () => {
       console.log("Connected to WebSocket server");
