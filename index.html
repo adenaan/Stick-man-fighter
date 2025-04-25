@@ -9,47 +9,49 @@
       margin: 0;
       padding: 0;
       background: black;
-      color: white;
-      font-family: sans-serif;
       overflow: hidden;
       touch-action: manipulation;
     }
+
     canvas {
       display: block;
-      margin: 40px auto 100px auto; /* space on top and bottom */
+      margin: 0 auto;
       background: #111;
     }
+
     .controls {
       position: fixed;
-      bottom: 10px;
+      bottom: 0;
       width: 100%;
       display: flex;
       justify-content: space-around;
       flex-wrap: wrap;
-      padding: 5px;
+      padding: 10px;
+      background: #000;
     }
+
     button {
-      padding: 15px;
+      padding: 14px;
       font-size: 16px;
-      margin: 4px;
-      width: 22%;
-      border: none;
-      border-radius: 8px;
+      width: 30%;
+      margin: 5px;
       background: #333;
       color: white;
+      border: none;
+      border-radius: 6px;
     }
+
     button:active {
       background: #555;
     }
   </style>
 </head>
 <body>
-  <canvas id="gameCanvas" width="800" height="600"></canvas>
+  <canvas id="gameCanvas" width="800" height="500"></canvas>
 
   <div class="controls">
-    <button ontouchstart="movePlayer(-10, 0)">←</button>
-    <button ontouchstart="movePlayer(0, -10)">↑</button>
-    <button ontouchstart="movePlayer(10, 0)">→</button>
+    <button ontouchstart="movePlayer(-10)">←</button>
+    <button ontouchstart="movePlayer(10)">→</button>
     <button ontouchstart="hit()">Hit</button>
     <button ontouchstart="kick()">Kick</button>
   </div>
@@ -60,39 +62,20 @@
 
     const socket = new WebSocket("wss://stick-man-fighter.glitch.me");
 
-    let walkFrame = 0;
-    let walking = false;
-
-    const FLOOR_Y = canvas.height - 80;
+    const FLOOR_Y = canvas.height - 100;
     let player = { x: 150, y: FLOOR_Y };
     let enemy = { x: 650, y: FLOOR_Y };
 
-    socket.addEventListener("open", () => {
-      console.log("Connected to WebSocket server");
-    });
+    let walking = false;
+    let walkFrame = 0;
 
-    socket.addEventListener("message", (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === "position") {
-        enemy.x = data.x;
-        enemy.y = data.y;
-      }
-    });
-
-    function clampPosition(p) {
-      const padding = 10;
-      const maxX = canvas.width - padding;
-      const minX = padding;
-      p.x = Math.max(minX, Math.min(maxX, p.x));
-    }
-
-    function movePlayer(dx, dy) {
+    function movePlayer(dx) {
       player.x += dx;
-      player.y = FLOOR_Y;
-      clampPosition(player);
-      sendPosition();
-      walkFrame++;
+      if (player.x < 20) player.x = 20;
+      if (player.x > canvas.width - 20) player.x = canvas.width - 20;
       walking = true;
+      walkFrame++;
+      sendPosition();
     }
 
     function hit() {
@@ -113,7 +96,15 @@
       }
     }
 
-    function drawStickman(x, y, color = "white", isWalking = false) {
+    socket.addEventListener("message", (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === "position") {
+        enemy.x = data.x;
+        enemy.y = data.y;
+      }
+    });
+
+    function drawStickman(x, y, color = "white", animate = false) {
       const scale = 2;
       ctx.strokeStyle = color;
       ctx.lineWidth = 3;
@@ -126,7 +117,7 @@
       ctx.moveTo(x, y + 10 * scale);
       ctx.lineTo(x, y + 40 * scale);
 
-      let swing = isWalking ? Math.sin(walkFrame / 5) * 10 : 0;
+      let swing = animate ? Math.sin(walkFrame / 5) * 10 : 0;
 
       // Arms
       ctx.moveTo(x, y + 20 * scale);
