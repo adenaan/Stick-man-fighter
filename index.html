@@ -214,8 +214,11 @@
   // Update game status for player count
   function updateStatus() {
     const playerCount = Object.keys(otherPlayers).length + 1; // Including self
-    document.getElementById("status").textContent =
-      playerCount < 2 ? "Waiting for other player..." : "Both players ready!";
+    if (playerCount < 2) {
+      document.getElementById("status").textContent = "Waiting for other player...";
+    } else {
+      document.getElementById("status").textContent = "Both players ready!";
+    }
   }
 
   document.addEventListener("touchstart", function (e) {
