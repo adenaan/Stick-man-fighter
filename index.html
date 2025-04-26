@@ -2,46 +2,37 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, user-scalable=no" />
   <title>Stickman Fighter</title>
   <style>
-    html, body {
+    body {
       margin: 0;
-      padding: 0;
-      background: linear-gradient(#111, #1a1a1a);
+      background: #111;
       color: white;
       font-family: sans-serif;
-      height: 100%;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: flex-start;
       touch-action: manipulation;
-    }
-    h1 {
-      margin: 10px 0 0;
-      font-size: 24px;
-      color: #eee;
     }
     canvas {
       background: #222;
+      margin-top: 10px;
       border: 2px solid #444;
-      margin: 10px 0;
-      max-width: 100%;
       touch-action: none;
     }
     .controls {
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
-      margin-bottom: 15px;
+      margin: 10px;
     }
     .button {
       width: 70px;
       height: 70px;
       margin: 5px;
-      font-size: 20px;
-      border-radius: 12px;
+      font-size: 18px;
+      border-radius: 10px;
       border: none;
       background: #444;
       color: white;
@@ -50,11 +41,15 @@
     .button:active {
       background: #666;
     }
+    #status {
+      margin-top: 10px;
+      font-size: 18px;
+      color: lime;
+    }
   </style>
 </head>
 <body>
 
-<h1>Stickman Fighter</h1>
 <canvas id="gameCanvas" width="360" height="480"></canvas>
 
 <div class="controls">
@@ -65,24 +60,31 @@
   <button class="button" id="punch">👊</button>
 </div>
 
-<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+<div id="status">Waiting for other player...</div>
+
+<!-- Include socket.io client -->
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 
 <script>
   const canvas = document.getElementById("gameCanvas");
   const ctx = canvas.getContext("2d");
 
-  const socket = io("https://stick-man-fighter.glitch.me");
+  // Connect to your backend server
+  const socket = io("https://stick-man-fighter.glitch.me"); // replace with your actual backend URL
 
   let socketId = null;
   let myPlayer = { x: 100, y: 400, vx: 0, isPunching: false, isKicking: false, color: "lime" };
   let otherPlayers = {};
   const speed = 3;
 
+  // On new connection, initialize player and status
   socket.on("init", (data) => {
     socketId = data.id;
     myPlayer.color = data.color;
+    updateStatus();
   });
 
+  // New player connection
   socket.on("newPlayer", (data) => {
     if (data.id !== socketId) {
       otherPlayers[data.id] = {
@@ -93,8 +95,10 @@
         color: data.color
       };
     }
+    updateStatus();
   });
 
+  // Player position updates
   socket.on("position", (data) => {
     if (data.id !== socketId) {
       otherPlayers[data.id] = {
@@ -107,10 +111,13 @@
     }
   });
 
+  // Player removed (disconnect)
   socket.on("remove", (data) => {
     delete otherPlayers[data.id];
+    updateStatus();
   });
 
+  // Send position updates to server
   function sendPosition() {
     if (socketId) {
       socket.emit("position", {
@@ -124,6 +131,7 @@
     }
   }
 
+  // Draw player stickman on canvas
   function drawStickman(x, y, color, isPunching, isKicking) {
     ctx.strokeStyle = color;
     ctx.lineWidth = 3;
@@ -147,6 +155,7 @@
     ctx.stroke();
   }
 
+  // Main game loop
   function gameLoop() {
     myPlayer.x += myPlayer.vx;
     myPlayer.x = Math.max(10, Math.min(canvas.width - 10, myPlayer.x));
@@ -188,7 +197,7 @@
   rightBtn.addEventListener("touchend", () => { moveRight = false; updateMovement(); });
 
   upBtn.addEventListener("touchstart", () => {
-    myPlayer.y = Math.max(60, myPlayer.y - 40); // prevent jumping too high
+    myPlayer.y -= 40;
     setTimeout(() => { myPlayer.y += 40; }, 300);
   });
 
@@ -201,6 +210,13 @@
     myPlayer.isKicking = true;
     setTimeout(() => { myPlayer.isKicking = false; }, 300);
   });
+
+  // Update game status for player count
+  function updateStatus() {
+    const playerCount = Object.keys(otherPlayers).length + 1; // Including self
+    document.getElementById("status").textContent =
+      playerCount < 2 ? "Waiting for other player..." : "Both players ready!";
+  }
 
   document.addEventListener("touchstart", function (e) {
     if (e.touches.length > 1) e.preventDefault();
