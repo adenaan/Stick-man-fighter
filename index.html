@@ -64,242 +64,236 @@
 
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <script>
-  const canvas = document.getElementById("gameCanvas");
-  const ctx = canvas.getContext("2d");
-  const socket = io("https://stick-man-fighter.glitch.me");
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+const socket = io("https://stick-man-fighter.glitch.me");
 
-  const playerName = prompt("Enter your name:") || "Player";
-  let socketId = null;
-  let myPlayer = {
-    x: 100, y: 400, vx: 0, vy: 0,
-    isPunching: false, isKicking: false,
-    color: "lime", jumping: false,
-    knockbackVX: 0, facing: 1,
-    name: playerName, hp: 3,
-    lastHit: 0
-  };
+const playerName = prompt("Enter your name:") || "Player";
+let socketId = null;
+let myPlayer = {
+  x: 100, y: 400, vx: 0, vy: 0,
+  isPunching: false, isKicking: false,
+  color: "lime", jumping: false,
+  knockbackVX: 0, facing: 1,
+  name: playerName, hp: 3,
+  lastHit: 0
+};
 
-  const gravity = 1;
-  const jumpStrength = -12;
-  const speed = 5;  // Move step-by-step with this value
-  const groundY = 400;
-  const maxX = canvas.width - 10;  // Max x position to stay inside the canvas
-  const minX = 10;  // Min x position to stay inside the canvas
+const gravity = 1;
+const jumpStrength = -12;
+const speed = 5;
+const groundY = 400;
+const maxX = canvas.width - 10;
+const minX = 10;
 
-  let otherPlayers = {};
-  let defeated = false;
+let otherPlayers = {};
+let defeated = false;
 
-  function updateStatus() {
-    const others = Object.keys(otherPlayers).length;
-    document.getElementById("status").textContent = defeated || myPlayer.hp <= 0
-      ? "You were knocked out!"
-      : others === 0
-        ? "Waiting for other player..."
-        : "Fight!";
+function updateStatus() {
+  const others = Object.keys(otherPlayers).length;
+  document.getElementById("status").textContent = defeated || myPlayer.hp <= 0
+    ? "You were knocked out!"
+    : others === 0
+      ? "Waiting for other player..."
+      : "Fight!";
+}
+
+socket.on("init", (data) => {
+  socketId = data.id;
+  myPlayer.color = data.color;
+  sendPosition();
+});
+
+socket.on("newPlayer", (data) => {
+  if (data.id !== socketId) {
+    otherPlayers[data.id] = {
+      x: 100, y: 400, isPunching: false, isKicking: false,
+      color: data.color, knockbackVX: 0, facing: -1,
+      name: data.name || "Opponent", hp: 3, lastHit: 0
+    };
   }
+  updateStatus();
+});
 
-  socket.on("init", (data) => {
-    socketId = data.id;
-    myPlayer.color = data.color;
-    sendPosition();
-  });
+socket.on("position", (data) => {
+  if (data.id !== socketId) {
+    const p = otherPlayers[data.id] || {};
+    otherPlayers[data.id] = {
+      ...p, x: data.x, y: data.y, color: data.color,
+      facing: data.facing || -1, name: data.name || "Opponent",
+      hp: data.hp ?? 3
+    };
+  }
+});
 
-  socket.on("newPlayer", (data) => {
-    if (data.id !== socketId) {
-      otherPlayers[data.id] = {
-        x: 100, y: 400, isPunching: false, isKicking: false,
-        color: data.color, knockbackVX: 0, facing: -1,
-        name: data.name || "Opponent", hp: 3, lastHit: 0
-      };
-    }
-    updateStatus();
-  });
-
-  socket.on("position", (data) => {
-    if (data.id !== socketId) {
-      const p = otherPlayers[data.id] || {};
-      otherPlayers[data.id] = {
-        ...p, x: data.x, y: data.y, color: data.color,
-        facing: data.facing || -1, name: data.name || "Opponent",
-        hp: data.hp ?? 3
-      };
-    }
-  });
-
-  socket.on("action", (data) => {
-    const p = otherPlayers[data.id];
-    if (p) {
-      if (data.type === "punch") {
-        p.isPunching = true;
-        setTimeout(() => p.isPunching = false, 300);
-      } else if (data.type === "kick") {
-        p.isKicking = true;
-        setTimeout(() => p.isKicking = false, 300);
-      }
-    }
-  });
-
-  socket.on("remove", (data) => {
-    delete otherPlayers[data.id];
-    updateStatus();
-  });
-
-  function sendPosition() {
-    if (socketId) {
-      socket.emit("position", {
-        id: socketId, x: myPlayer.x, y: myPlayer.y,
-        color: myPlayer.color, facing: myPlayer.facing,
-        name: myPlayer.name, hp: myPlayer.hp
-      });
+socket.on("action", (data) => {
+  const p = otherPlayers[data.id];
+  if (p) {
+    if (data.type === "punch") {
+      p.isPunching = true;
+      setTimeout(() => p.isPunching = false, 300);
+    } else if (data.type === "kick") {
+      p.isKicking = true;
+      setTimeout(() => p.isKicking = false, 300);
     }
   }
+});
 
-  function drawStickman(x, y, color, isPunching, isKicking, facing, name, hp) {
-    if (hp <= 0) return;
-    ctx.fillStyle = "white";
-    ctx.font = "14px sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText(`${name} (${hp})`, x, y - 50);
+socket.on("remove", (data) => {
+  delete otherPlayers[data.id];
+  updateStatus();
+});
 
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.arc(x, y - 40, 10, 0, Math.PI * 2); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(x, y - 30); ctx.lineTo(x, y - 10); ctx.stroke();
+function sendPosition() {
+  if (socketId) {
+    socket.emit("position", {
+      id: socketId, x: myPlayer.x, y: myPlayer.y,
+      color: myPlayer.color, facing: myPlayer.facing,
+      name: myPlayer.name, hp: myPlayer.hp
+    });
+  }
+}
 
-    const dir = facing || 1;
-    if (isPunching) {
-      ctx.beginPath(); ctx.moveTo(x, y - 25); ctx.lineTo(x + 15 * dir, y - 30); ctx.stroke();
-    } else if (isKicking) {
-      ctx.beginPath(); ctx.moveTo(x, y - 10); ctx.lineTo(x + 15 * dir, y + 10); ctx.stroke();
-    } else {
-      ctx.beginPath();
-      ctx.moveTo(x, y - 25); ctx.lineTo(x + 5, y - 20);
-      ctx.moveTo(x, y - 25); ctx.lineTo(x - 5, y - 20);
-      ctx.stroke();
-    }
+function drawStickman(x, y, color, isPunching, isKicking, facing, name, hp) {
+  if (hp <= 0) return;
 
+  // Name and HP
+  ctx.fillStyle = "white";
+  ctx.font = "14px sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText(`${name} (${hp})`, x, y - 50);
+
+  // Health bar
+  ctx.fillStyle = "red";
+  ctx.fillRect(x - 20, y - 40, 40, 5);
+  ctx.fillStyle = "lime";
+  ctx.fillRect(x - 20, y - 40, 40 * (hp / 3), 5);
+
+  // Head and body
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(x, y - 35, 10, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x, y - 25); ctx.lineTo(x, y - 5); ctx.stroke();
+
+  const dir = facing || 1;
+  if (isPunching) {
+    ctx.beginPath(); ctx.moveTo(x, y - 20); ctx.lineTo(x + 15 * dir, y - 25); ctx.stroke();
+  } else if (isKicking) {
+    ctx.beginPath(); ctx.moveTo(x, y - 5); ctx.lineTo(x + 15 * dir, y + 10); ctx.stroke();
+  } else {
     ctx.beginPath();
-    ctx.moveTo(x, y - 10); ctx.lineTo(x + 10, y + 10);
-    ctx.moveTo(x, y - 10); ctx.lineTo(x - 10, y + 10);
+    ctx.moveTo(x, y - 20); ctx.lineTo(x + 5, y - 15);
+    ctx.moveTo(x, y - 20); ctx.lineTo(x - 5, y - 15);
     ctx.stroke();
   }
 
-  function applyKnockback(attacker, target) {
-    const now = Date.now();
-    const dx = target.x - attacker.x;
-    const inRange = Math.abs(dx) < 30 && Math.abs(target.y - attacker.y) < 30;
-    const facingCorrect = attacker.facing === (dx > 0 ? 1 : -1);
-    if (inRange && facingCorrect && now - target.lastHit > 1000 && target.hp > 0) {
-      target.knockbackVX = attacker.facing * 5;
-      target.hp--;
-      target.lastHit = now;
-      if (target.id === socketId) {
-        myPlayer.hp--;
-        if (myPlayer.hp <= 0) defeated = true;
-      }
+  ctx.beginPath();
+  ctx.moveTo(x, y - 5); ctx.lineTo(x + 10, y + 10);
+  ctx.moveTo(x, y - 5); ctx.lineTo(x - 10, y + 10);
+  ctx.stroke();
+}
+
+function applyKnockback(attacker, target) {
+  const now = Date.now();
+  const dx = target.x - attacker.x;
+  const inRange = Math.abs(dx) < 30 && Math.abs(target.y - attacker.y) < 30;
+  const facingCorrect = attacker.facing === (dx > 0 ? 1 : -1);
+  if (inRange && facingCorrect && now - target.lastHit > 1000 && target.hp > 0) {
+    target.knockbackVX = attacker.facing * 5;
+    target.hp--;
+    target.lastHit = now;
+    if (target.id === socketId) {
+      myPlayer.hp--;
+      if (myPlayer.hp <= 0) defeated = true;
     }
   }
+}
 
-  function handleCombat() {
-    for (let id in otherPlayers) {
-      const p = otherPlayers[id];
-      if ((myPlayer.isPunching || myPlayer.isKicking) && p.hp > 0) {
-        applyKnockback(myPlayer, p);
-      }
+function handleCombat() {
+  for (let id in otherPlayers) {
+    const p = otherPlayers[id];
+    if (!defeated && (myPlayer.isPunching || myPlayer.isKicking) && p.hp > 0) {
+      applyKnockback(myPlayer, p);
     }
   }
+}
 
-  function preventOverlap() {
-    for (let id in otherPlayers) {
-      const p = otherPlayers[id];
-      const dx = p.x - myPlayer.x;
-      const overlap = Math.abs(dx) < 20 && Math.abs(p.y - myPlayer.y) < 30;
-      if (overlap) {
-        if (dx > 0 && myPlayer.vx > 0) myPlayer.vx = 0;
-        if (dx < 0 && myPlayer.vx < 0) myPlayer.vx = 0;
-      }
+function preventOverlap() {
+  for (let id in otherPlayers) {
+    const p = otherPlayers[id];
+    const dx = p.x - myPlayer.x;
+    const overlap = Math.abs(dx) < 20 && Math.abs(p.y - myPlayer.y) < 30;
+    if (overlap) {
+      if (dx > 0 && myPlayer.vx > 0) myPlayer.vx = 0;
+      if (dx < 0 && myPlayer.vx < 0) myPlayer.vx = 0;
     }
   }
+}
 
-  function updateFacingDirection() {
-    for (let id in otherPlayers) {
-      const p = otherPlayers[id];
-      myPlayer.facing = myPlayer.x < p.x ? 1 : -1;
-    }
+function updateFacingDirection() {
+  for (let id in otherPlayers) {
+    const p = otherPlayers[id];
+    myPlayer.facing = myPlayer.x < p.x ? 1 : -1;
+  }
+}
+
+function gameLoop() {
+  updateFacingDirection();
+  preventOverlap();
+
+  if (myPlayer.x + myPlayer.vx >= minX && myPlayer.x + myPlayer.vx <= maxX) {
+    myPlayer.x += myPlayer.vx;
   }
 
-  function gameLoop() {
-    if (myPlayer.hp <= 0) {
-      updateStatus();
-      return;
-    }
+  myPlayer.vy += gravity;
+  myPlayer.y += myPlayer.vy;
+  myPlayer.knockbackVX *= 0.8;
+  if (Math.abs(myPlayer.knockbackVX) < 0.1) myPlayer.knockbackVX = 0;
 
-    updateFacingDirection();
-    preventOverlap();
-
-    // Apply movement only if within canvas boundaries
-    if (myPlayer.x + myPlayer.vx >= minX && myPlayer.x + myPlayer.vx <= maxX) {
-      myPlayer.x += myPlayer.vx;
-    }
-
-    myPlayer.vy += gravity;
-    myPlayer.y += myPlayer.vy;
-    myPlayer.knockbackVX *= 0.8;
-    if (Math.abs(myPlayer.knockbackVX) < 0.1) myPlayer.knockbackVX = 0;
-
-    if (myPlayer.y >= groundY) {
-      myPlayer.y = groundY;
-      myPlayer.vy = 0;
-      myPlayer.jumping = false;
-    }
-
-    // Drawing
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Draw all players
-    drawStickman(myPlayer.x, myPlayer.y, myPlayer.color, myPlayer.isPunching, myPlayer.isKicking, myPlayer.facing, myPlayer.name, myPlayer.hp);
-    for (let id in otherPlayers) {
-      const p = otherPlayers[id];
-      if (p.hp > 0) {
-        drawStickman(p.x, p.y, p.color, p.isPunching, p.isKicking, p.facing, p.name, p.hp);
-      }
-    }
-
-    handleCombat();
-    sendPosition();
-    requestAnimationFrame(gameLoop);
+  if (myPlayer.y >= groundY) {
+    myPlayer.y = groundY;
+    myPlayer.vy = 0;
+    myPlayer.jumping = false;
   }
 
-  const leftBtn = document.getElementById("left");
-  const rightBtn = document.getElementById("right");
-  const upBtn = document.getElementById("up");
-  const kickBtn = document.getElementById("kick");
-  const punchBtn = document.getElementById("punch");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  leftBtn.addEventListener("click", () => {
-    myPlayer.vx = -speed;  // Step-by-step left movement
-  });
+  drawStickman(myPlayer.x, myPlayer.y, myPlayer.color, myPlayer.isPunching, myPlayer.isKicking, myPlayer.facing, myPlayer.name, myPlayer.hp);
+  for (let id in otherPlayers) {
+    const p = otherPlayers[id];
+    drawStickman(p.x, p.y, p.color, p.isPunching, p.isKicking, p.facing, p.name, p.hp);
+  }
 
-  rightBtn.addEventListener("click", () => {
-    myPlayer.vx = speed;  // Step-by-step right movement
-  });
+  handleCombat();
+  sendPosition();
+  myPlayer.vx = 0; // Reset movement after each frame
+  requestAnimationFrame(gameLoop);
+}
 
-  upBtn.addEventListener("click", () => {
-    if (!myPlayer.jumping) {
-      myPlayer.vy = jumpStrength;
-      myPlayer.jumping = true;
-    }
-  });
+document.getElementById("left").addEventListener("click", () => myPlayer.vx = -speed);
+document.getElementById("right").addEventListener("click", () => myPlayer.vx = speed);
+document.getElementById("up").addEventListener("click", () => {
+  if (!myPlayer.jumping) {
+    myPlayer.vy = jumpStrength;
+    myPlayer.jumping = true;
+  }
+});
+document.getElementById("punch").addEventListener("click", () => {
+  if (!defeated) {
+    myPlayer.isPunching = true;
+    socket.emit("action", { id: socketId, type: "punch" });
+    setTimeout(() => myPlayer.isPunching = false, 300);
+  }
+});
+document.getElementById("kick").addEventListener("click", () => {
+  if (!defeated) {
+    myPlayer.isKicking = true;
+    socket.emit("action", { id: socketId, type: "kick" });
+    setTimeout(() => myPlayer.isKicking = false, 300);
+  }
+});
 
-  kickBtn.addEventListener("click", () => {
-    socket.emit("action", { type: "kick", id: socketId });
-  });
-
-  punchBtn.addEventListener("click", () => {
-    socket.emit("action", { type: "punch", id: socketId });
-  });
-
-  gameLoop();  // Start the game loop
+gameLoop();
 </script>
 </body>
 </html>
