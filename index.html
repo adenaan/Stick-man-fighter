@@ -237,7 +237,7 @@
     updateFacingDirection();
     preventOverlap();
 
-    // Apply movement
+    // Apply movement only if within canvas boundaries
     if (myPlayer.x + myPlayer.vx >= minX && myPlayer.x + myPlayer.vx <= maxX) {
       myPlayer.x += myPlayer.vx;
     }
