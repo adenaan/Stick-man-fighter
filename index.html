@@ -301,23 +301,20 @@
     });
   }
 
-  bindButton(leftBtn, () => { moveLeft = true; updateMovement(); }, () => { moveLeft = false; updateMovement(); });
-  bindButton(rightBtn, () => { moveRight = true; updateMovement(); }, () => { moveRight = false; updateMovement(); });
-  bindButton(upBtn, () => {
-    if (!myPlayer.jumping) {
-      myPlayer.vy = jumpStrength;
-      myPlayer.jumping = true;
-    }
-  });
+  bindButton(leftBtn, () => { moveLeft = true; }, () => { moveLeft = false; });
+  bindButton(rightBtn, () => { moveRight = true; }, () => { moveRight = false; });
+  bindButton(upBtn, () => { if (!myPlayer.jumping) { myPlayer.vy = jumpStrength; myPlayer.jumping = true; } });
+
   bindButton(kickBtn, () => {
     myPlayer.isKicking = true;
-    socket.emit("action", { id: socketId, type: "kick" });
-    setTimeout(() => myPlayer.isKicking = false, 300);
+    socket.emit("action", { type: "kick" });
+    setTimeout(() => { myPlayer.isKicking = false; }, 300);
   });
+
   bindButton(punchBtn, () => {
     myPlayer.isPunching = true;
-    socket.emit("action", { id: socketId, type: "punch" });
-    setTimeout(() => myPlayer.isPunching = false, 300);
+    socket.emit("action", { type: "punch" });
+    setTimeout(() => { myPlayer.isPunching = false; }, 300);
   });
 </script>
 
