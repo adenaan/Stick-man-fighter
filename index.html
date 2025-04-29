@@ -71,8 +71,9 @@
   let socketId = null;
   let myPlayer = {
     x: 100, y: 400, vx: 0, vy: 0,
-    isPunching: false, isKicking: false, color: "lime",
-    jumping: false
+    isPunching: false, isKicking: false,
+    color: "lime", jumping: false,
+    knockbackVX: 0
   };
   const gravity = 1;
   const jumpStrength = -12;
@@ -90,7 +91,8 @@
   socket.on("newPlayer", (data) => {
     if (data.id !== socketId) {
       otherPlayers[data.id] = {
-        x: 100, y: 400, isPunching: false, isKicking: false, color: data.color
+        x: 100, y: 400, isPunching: false, isKicking: false,
+        color: data.color, knockbackVX: 0
       };
     }
     updateStatus();
@@ -102,7 +104,8 @@
         x: data.x, y: data.y,
         isPunching: data.isPunching,
         isKicking: data.isKicking,
-        color: data.color
+        color: data.color,
+        knockbackVX: otherPlayers[data.id]?.knockbackVX || 0
       };
     }
   });
@@ -148,29 +151,32 @@
     ctx.stroke();
   }
 
-  function gameLoop() {
-    // Horizontal collision with other players
+  function applyKnockback(attacker, target) {
+    const dx = target.x - attacker.x;
+    if (Math.abs(dx) < 30 && Math.abs(target.y - attacker.y) < 30) {
+      const direction = dx > 0 ? 1 : -1;
+      target.knockbackVX = direction * 5;
+    }
+  }
+
+  function handleCombat() {
     for (let id in otherPlayers) {
       const p = otherPlayers[id];
-      const dx = myPlayer.x - p.x;
-      const dy = myPlayer.y - p.y;
-
-      if (
-        Math.abs(dx) < 30 && // horizontal overlap
-        Math.abs(dy) < 40 && // similar vertical position
-        !myPlayer.jumping &&
-        myPlayer.y >= p.y - 40
-      ) {
-        if ((dx < 0 && myPlayer.vx > 0) || (dx > 0 && myPlayer.vx < 0)) {
-          myPlayer.vx = 0; // stop horizontal motion
-        }
+      if (myPlayer.isPunching || myPlayer.isKicking) {
+        applyKnockback(myPlayer, p);
       }
     }
+  }
 
-    // Apply movement
-    myPlayer.x += myPlayer.vx;
+  function gameLoop() {
+    // Gravity and movement
+    myPlayer.x += myPlayer.vx + myPlayer.knockbackVX;
     myPlayer.vy += gravity;
     myPlayer.y += myPlayer.vy;
+
+    // Apply friction to knockback
+    myPlayer.knockbackVX *= 0.8;
+    if (Math.abs(myPlayer.knockbackVX) < 0.1) myPlayer.knockbackVX = 0;
 
     // Ground collision
     if (myPlayer.y >= groundY) {
@@ -182,6 +188,7 @@
     // Boundaries
     myPlayer.x = Math.max(10, Math.min(canvas.width - 10, myPlayer.x));
 
+    handleCombat();
     sendPosition();
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -191,6 +198,11 @@
     drawStickman(myPlayer.x, myPlayer.y, myPlayer.color, myPlayer.isPunching, myPlayer.isKicking);
     for (let id in otherPlayers) {
       const p = otherPlayers[id];
+      // Apply knockback to others
+      p.x += p.knockbackVX;
+      p.knockbackVX *= 0.8;
+      if (Math.abs(p.knockbackVX) < 0.1) p.knockbackVX = 0;
+
       drawStickman(p.x, p.y, p.color, p.isPunching, p.isKicking);
     }
 
@@ -212,11 +224,13 @@
     myPlayer.vx = moveLeft ? -speed : (moveRight ? speed : 0);
   }
 
+  // Movement
   leftBtn.addEventListener("touchstart", () => { moveLeft = true; updateMovement(); });
   leftBtn.addEventListener("touchend", () => { moveLeft = false; updateMovement(); });
   rightBtn.addEventListener("touchstart", () => { moveRight = true; updateMovement(); });
   rightBtn.addEventListener("touchend", () => { moveRight = false; updateMovement(); });
 
+  // Jump
   upBtn.addEventListener("touchstart", () => {
     if (!myPlayer.jumping) {
       myPlayer.vy = jumpStrength;
@@ -224,11 +238,13 @@
     }
   });
 
+  // Punch
   punchBtn.addEventListener("touchstart", () => {
     myPlayer.isPunching = true;
     setTimeout(() => { myPlayer.isPunching = false; }, 300);
   });
 
+  // Kick
   kickBtn.addEventListener("touchstart", () => {
     myPlayer.isKicking = true;
     setTimeout(() => { myPlayer.isKicking = false; }, 300);
