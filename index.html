@@ -247,6 +247,7 @@
       myPlayer.jumping = false;
     }
 
+    // Ensure player doesn't move off screen
     myPlayer.x = Math.max(10, Math.min(canvas.width - 10, myPlayer.x));
 
     handleCombat();
@@ -264,40 +265,41 @@
       if (Math.abs(p.knockbackVX) < 0.1) p.knockbackVX = 0;
       drawStickman(p.x, p.y, p.color, p.isPunching, p.isKicking, p.facing, p.name, p.hp);
     }
-
     requestAnimationFrame(gameLoop);
   }
 
-  gameLoop();
-
+  // Handle button presses and releases
   const leftBtn = document.getElementById("left");
   const rightBtn = document.getElementById("right");
   const upBtn = document.getElementById("up");
   const kickBtn = document.getElementById("kick");
   const punchBtn = document.getElementById("punch");
 
-  let moveLeft = false, moveRight = false;
+  let moveLeft = false;
+  let moveRight = false;
 
   function updateMovement() {
-    myPlayer.vx = moveLeft ? -speed : moveRight ? speed : 0;
+    myPlayer.vx = 0;
+    if (moveLeft) myPlayer.vx = -speed;
+    if (moveRight) myPlayer.vx = speed;
   }
 
-  function bindButton(button, onPress, onRelease = () => {}) {
+  function bindButton(button, onPress) {
     button.addEventListener("touchstart", (e) => {
       e.preventDefault();
       onPress();
-    });
-    button.addEventListener("touchend", (e) => {
-      e.preventDefault();
-      onRelease();
     });
     button.addEventListener("mousedown", (e) => {
       e.preventDefault();
       onPress();
     });
+    button.addEventListener("touchend", (e) => {
+      e.preventDefault();
+      updateMovement();
+    });
     button.addEventListener("mouseup", (e) => {
       e.preventDefault();
-      onRelease();
+      updateMovement();
     });
   }
 
@@ -315,6 +317,8 @@
     setTimeout(() => myPlayer.isPunching = false, 300);
   });
 
+  gameLoop();
 </script>
+
 </body>
 </html>
