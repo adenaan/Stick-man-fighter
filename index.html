@@ -62,29 +62,33 @@
 
 <div id="status">Waiting for other player...</div>
 
-<!-- Include socket.io client -->
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 
 <script>
   const canvas = document.getElementById("gameCanvas");
   const ctx = canvas.getContext("2d");
 
-  // Connect to your backend server
-  const socket = io("https://stick-man-fighter.glitch.me"); // replace with your actual backend URL
+  const socket = io("https://stick-man-fighter.glitch.me");
 
   let socketId = null;
-  let myPlayer = { x: 100, y: 400, vx: 0, isPunching: false, isKicking: false, color: "lime" };
+  let myPlayer = {
+    x: 100,
+    y: 400,
+    vx: 0,
+    isPunching: false,
+    isKicking: false,
+    color: "lime",
+    facing: "right"
+  };
   let otherPlayers = {};
   const speed = 3;
 
-  // On new connection, initialize player and status
   socket.on("init", (data) => {
     socketId = data.id;
     myPlayer.color = data.color;
     updateStatus();
   });
 
-  // New player connection
   socket.on("newPlayer", (data) => {
     if (data.id !== socketId) {
       otherPlayers[data.id] = {
@@ -92,13 +96,13 @@
         y: 400,
         isPunching: false,
         isKicking: false,
-        color: data.color
+        color: data.color,
+        facing: "right"
       };
     }
     updateStatus();
   });
 
-  // Player position updates
   socket.on("position", (data) => {
     if (data.id !== socketId) {
       otherPlayers[data.id] = {
@@ -106,18 +110,17 @@
         y: data.y,
         isPunching: data.isPunching,
         isKicking: data.isKicking,
-        color: data.color
+        color: data.color,
+        facing: data.facing || "right"
       };
     }
   });
 
-  // Player removed (disconnect)
   socket.on("remove", (data) => {
     delete otherPlayers[data.id];
     updateStatus();
   });
 
-  // Send position updates to server
   function sendPosition() {
     if (socketId) {
       socket.emit("position", {
@@ -126,13 +129,21 @@
         y: myPlayer.y,
         isPunching: myPlayer.isPunching,
         isKicking: myPlayer.isKicking,
-        color: myPlayer.color
+        color: myPlayer.color,
+        facing: myPlayer.facing
       });
     }
   }
 
-  // Draw player stickman on canvas
-  function drawStickman(x, y, color, isPunching, isKicking) {
+  function drawStickman(x, y, color, isPunching, isKicking, facing) {
+    ctx.save();
+
+    if (facing === "left") {
+      ctx.translate(x, 0);
+      ctx.scale(-1, 1);
+      x = 0;
+    }
+
     ctx.strokeStyle = color;
     ctx.lineWidth = 3;
     ctx.beginPath(); ctx.arc(x, y - 40, 10, 0, Math.PI * 2); ctx.stroke();
@@ -153,11 +164,15 @@
     ctx.moveTo(x, y - 10); ctx.lineTo(x + 10, y + 10);
     ctx.moveTo(x, y - 10); ctx.lineTo(x - 10, y + 10);
     ctx.stroke();
+
+    ctx.restore();
   }
 
-  // Main game loop
   function gameLoop() {
     myPlayer.x += myPlayer.vx;
+    if (myPlayer.vx < 0) myPlayer.facing = "left";
+    else if (myPlayer.vx > 0) myPlayer.facing = "right";
+
     myPlayer.x = Math.max(10, Math.min(canvas.width - 10, myPlayer.x));
     sendPosition();
 
@@ -165,10 +180,11 @@
     ctx.fillStyle = "#333";
     ctx.fillRect(0, 410, canvas.width, 5);
 
-    drawStickman(myPlayer.x, myPlayer.y, myPlayer.color, myPlayer.isPunching, myPlayer.isKicking);
+    drawStickman(myPlayer.x, myPlayer.y, myPlayer.color, myPlayer.isPunching, myPlayer.isKicking, myPlayer.facing);
+
     for (let id in otherPlayers) {
       const p = otherPlayers[id];
-      drawStickman(p.x, p.y, p.color, p.isPunching, p.isKicking);
+      drawStickman(p.x, p.y, p.color, p.isPunching, p.isKicking, p.facing);
     }
 
     requestAnimationFrame(gameLoop);
@@ -176,7 +192,6 @@
 
   gameLoop();
 
-  // Input setup
   const leftBtn = document.getElementById("left");
   const rightBtn = document.getElementById("right");
   const upBtn = document.getElementById("up");
@@ -211,14 +226,10 @@
     setTimeout(() => { myPlayer.isKicking = false; }, 300);
   });
 
-  // Update game status for player count
   function updateStatus() {
-    const playerCount = Object.keys(otherPlayers).length + 1; // Including self
-    if (playerCount < 2) {
-      document.getElementById("status").textContent = "Waiting for other player...";
-    } else {
-      document.getElementById("status").textContent = "Both players ready!";
-    }
+    const playerCount = Object.keys(otherPlayers).length + 1;
+    document.getElementById("status").textContent =
+      playerCount < 2 ? "Waiting for other player..." : "Both players ready!";
   }
 
   document.addEventListener("touchstart", function (e) {
