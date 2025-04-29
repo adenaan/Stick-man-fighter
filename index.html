@@ -247,28 +247,22 @@
       myPlayer.jumping = false;
     }
 
-    // Ensure player doesn't move off screen
-    myPlayer.x = Math.max(10, Math.min(canvas.width - 10, myPlayer.x));
-
-    handleCombat();
     sendPosition();
-
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = "#333";
-    ctx.fillRect(0, groundY + 10, canvas.width, 5);
 
     drawStickman(myPlayer.x, myPlayer.y, myPlayer.color, myPlayer.isPunching, myPlayer.isKicking, myPlayer.facing, myPlayer.name, myPlayer.hp);
+
     for (let id in otherPlayers) {
       const p = otherPlayers[id];
-      p.x += p.knockbackVX;
-      p.knockbackVX *= 0.8;
-      if (Math.abs(p.knockbackVX) < 0.1) p.knockbackVX = 0;
       drawStickman(p.x, p.y, p.color, p.isPunching, p.isKicking, p.facing, p.name, p.hp);
     }
+
+    handleCombat();
+    updateStatus();
+
     requestAnimationFrame(gameLoop);
   }
 
-  // Handle button presses and releases
   const leftBtn = document.getElementById("left");
   const rightBtn = document.getElementById("right");
   const upBtn = document.getElementById("up");
