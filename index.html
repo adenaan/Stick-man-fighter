@@ -73,7 +73,7 @@
     x: 100, y: 400, vx: 0, vy: 0,
     isPunching: false, isKicking: false,
     color: "lime", jumping: false,
-    knockbackVX: 0
+    knockbackVX: 0, facing: 1
   };
   const gravity = 1;
   const jumpStrength = -12;
@@ -92,7 +92,7 @@
     if (data.id !== socketId) {
       otherPlayers[data.id] = {
         x: 100, y: 400, isPunching: false, isKicking: false,
-        color: data.color, knockbackVX: 0
+        color: data.color, knockbackVX: 0, facing: -1
       };
     }
     updateStatus();
@@ -105,7 +105,8 @@
         isPunching: data.isPunching,
         isKicking: data.isKicking,
         color: data.color,
-        knockbackVX: otherPlayers[data.id]?.knockbackVX || 0
+        knockbackVX: otherPlayers[data.id]?.knockbackVX || 0,
+        facing: data.facing || -1
       };
     }
   });
@@ -123,7 +124,8 @@
         y: myPlayer.y,
         isPunching: myPlayer.isPunching,
         isKicking: myPlayer.isKicking,
-        color: myPlayer.color
+        color: myPlayer.color,
+        facing: myPlayer.facing
       });
     }
   }
@@ -131,8 +133,8 @@
   function drawStickman(x, y, color, isPunching, isKicking) {
     ctx.strokeStyle = color;
     ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.arc(x, y - 40, 10, 0, Math.PI * 2); ctx.stroke(); // head
-    ctx.beginPath(); ctx.moveTo(x, y - 30); ctx.lineTo(x, y - 10); ctx.stroke(); // body
+    ctx.beginPath(); ctx.arc(x, y - 40, 10, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x, y - 30); ctx.lineTo(x, y - 10); ctx.stroke();
 
     if (isPunching) {
       ctx.beginPath(); ctx.moveTo(x, y - 25); ctx.lineTo(x + 15, y - 30); ctx.stroke();
@@ -153,9 +155,10 @@
 
   function applyKnockback(attacker, target) {
     const dx = target.x - attacker.x;
-    if (Math.abs(dx) < 30 && Math.abs(target.y - attacker.y) < 30) {
-      const direction = dx > 0 ? 1 : -1;
-      target.knockbackVX = direction * 5;
+    const inRange = Math.abs(dx) < 30 && Math.abs(target.y - attacker.y) < 30;
+    const facingCorrect = attacker.facing === (dx > 0 ? 1 : -1);
+    if (inRange && facingCorrect) {
+      target.knockbackVX = attacker.facing * 5;
     }
   }
 
@@ -168,24 +171,41 @@
     }
   }
 
+  function preventOverlap() {
+    for (let id in otherPlayers) {
+      const p = otherPlayers[id];
+      const dx = p.x - myPlayer.x;
+      const overlap = Math.abs(dx) < 20 && Math.abs(p.y - myPlayer.y) < 30;
+      if (overlap) {
+        if (dx > 0 && myPlayer.vx > 0) myPlayer.vx = 0;
+        if (dx < 0 && myPlayer.vx < 0) myPlayer.vx = 0;
+      }
+    }
+  }
+
+  function updateFacingDirection() {
+    for (let id in otherPlayers) {
+      const p = otherPlayers[id];
+      myPlayer.facing = myPlayer.x < p.x ? 1 : -1;
+    }
+  }
+
   function gameLoop() {
-    // Gravity and movement
+    updateFacingDirection();
+    preventOverlap();
+
     myPlayer.x += myPlayer.vx + myPlayer.knockbackVX;
     myPlayer.vy += gravity;
     myPlayer.y += myPlayer.vy;
-
-    // Apply friction to knockback
     myPlayer.knockbackVX *= 0.8;
     if (Math.abs(myPlayer.knockbackVX) < 0.1) myPlayer.knockbackVX = 0;
 
-    // Ground collision
     if (myPlayer.y >= groundY) {
       myPlayer.y = groundY;
       myPlayer.vy = 0;
       myPlayer.jumping = false;
     }
 
-    // Boundaries
     myPlayer.x = Math.max(10, Math.min(canvas.width - 10, myPlayer.x));
 
     handleCombat();
@@ -198,11 +218,9 @@
     drawStickman(myPlayer.x, myPlayer.y, myPlayer.color, myPlayer.isPunching, myPlayer.isKicking);
     for (let id in otherPlayers) {
       const p = otherPlayers[id];
-      // Apply knockback to others
       p.x += p.knockbackVX;
       p.knockbackVX *= 0.8;
       if (Math.abs(p.knockbackVX) < 0.1) p.knockbackVX = 0;
-
       drawStickman(p.x, p.y, p.color, p.isPunching, p.isKicking);
     }
 
@@ -224,13 +242,11 @@
     myPlayer.vx = moveLeft ? -speed : (moveRight ? speed : 0);
   }
 
-  // Movement
   leftBtn.addEventListener("touchstart", () => { moveLeft = true; updateMovement(); });
   leftBtn.addEventListener("touchend", () => { moveLeft = false; updateMovement(); });
   rightBtn.addEventListener("touchstart", () => { moveRight = true; updateMovement(); });
   rightBtn.addEventListener("touchend", () => { moveRight = false; updateMovement(); });
 
-  // Jump
   upBtn.addEventListener("touchstart", () => {
     if (!myPlayer.jumping) {
       myPlayer.vy = jumpStrength;
@@ -238,13 +254,11 @@
     }
   });
 
-  // Punch
   punchBtn.addEventListener("touchstart", () => {
     myPlayer.isPunching = true;
     setTimeout(() => { myPlayer.isPunching = false; }, 300);
   });
 
-  // Kick
   kickBtn.addEventListener("touchstart", () => {
     myPlayer.isKicking = true;
     setTimeout(() => { myPlayer.isKicking = false; }, 300);
