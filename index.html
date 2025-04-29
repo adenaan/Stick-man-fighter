@@ -267,7 +267,6 @@
     }
 
     handleCombat();
-
     sendPosition();
     requestAnimationFrame(gameLoop);
   }
@@ -280,12 +279,10 @@
 
   leftBtn.addEventListener("click", () => {
     myPlayer.vx = -speed;
-    updateMovement();
   });
 
   rightBtn.addEventListener("click", () => {
     myPlayer.vx = speed;
-    updateMovement();
   });
 
   upBtn.addEventListener("click", () => {
