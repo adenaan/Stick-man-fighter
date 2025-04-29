@@ -86,6 +86,15 @@
     socketId = data.id;
     myPlayer.color = data.color;
     updateStatus();
+    
+    // Immediately send position after initialization to ensure visibility
+    socket.emit("position", {
+      id: socketId,
+      x: myPlayer.x,
+      y: myPlayer.y,
+      color: myPlayer.color,
+      facing: myPlayer.facing
+    });
   });
 
   socket.on("newPlayer", (data) => {
@@ -255,39 +264,21 @@
     myPlayer.vx = moveLeft ? -speed : (moveRight ? speed : 0);
   }
 
-  leftBtn.addEventListener("touchstart", () => { moveLeft = true; updateMovement(); });
-  leftBtn.addEventListener("touchend", () => { moveLeft = false; updateMovement(); });
-  rightBtn.addEventListener("touchstart", () => { moveRight = true; updateMovement(); });
-  rightBtn.addEventListener("touchend", () => { moveRight = false; updateMovement(); });
-
-  upBtn.addEventListener("touchstart", () => {
+  leftBtn.addEventListener("click", () => { moveLeft = true; updateMovement(); });
+  rightBtn.addEventListener("click", () => { moveRight = true; updateMovement(); });
+  upBtn.addEventListener("click", () => {
     if (!myPlayer.jumping) {
       myPlayer.vy = jumpStrength;
       myPlayer.jumping = true;
     }
   });
-
-  punchBtn.addEventListener("touchstart", () => {
-    myPlayer.isPunching = true;
-    socket.emit("action", { id: socketId, type: "punch" });
-    setTimeout(() => { myPlayer.isPunching = false; }, 300);
+  kickBtn.addEventListener("click", () => { socket.emit("action", { id: socketId, type: "kick" }); });
+  punchBtn.addEventListener("click", () => { socket.emit("action", { id: socketId, type: "punch" }); });
+  
+  document.addEventListener("touchend", () => {
+    moveLeft = moveRight = false;
+    updateMovement();
   });
-
-  kickBtn.addEventListener("touchstart", () => {
-    myPlayer.isKicking = true;
-    socket.emit("action", { id: socketId, type: "kick" });
-    setTimeout(() => { myPlayer.isKicking = false; }, 300);
-  });
-
-  function updateStatus() {
-    const playerCount = Object.keys(otherPlayers).length + 1;
-    document.getElementById("status").textContent =
-      playerCount < 2 ? "Waiting for other player..." : "Both players ready!";
-  }
-
-  document.addEventListener("touchstart", (e) => {
-    if (e.touches.length > 1) e.preventDefault();
-  }, { passive: false });
 </script>
 
 </body>
