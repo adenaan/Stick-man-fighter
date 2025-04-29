@@ -75,8 +75,8 @@
     isPunching: false, isKicking: false,
     color: "lime", jumping: false,
     knockbackVX: 0, facing: 1,
-    name: playerName,
-    hp: 3
+    name: playerName, hp: 3,
+    lastHit: 0
   };
 
   const gravity = 1;
@@ -89,13 +89,11 @@
 
   function updateStatus() {
     const others = Object.keys(otherPlayers).length;
-    document.getElementById("status").textContent = defeated
+    document.getElementById("status").textContent = defeated || myPlayer.hp <= 0
       ? "You were knocked out!"
-      : myPlayer.hp <= 0
-        ? "You were knocked out!"
-        : others === 0
-          ? "Waiting for other player..."
-          : "Fight!";
+      : others === 0
+        ? "Waiting for other player..."
+        : "Fight!";
   }
 
   socket.on("init", (data) => {
@@ -109,9 +107,7 @@
       otherPlayers[data.id] = {
         x: 100, y: 400, isPunching: false, isKicking: false,
         color: data.color, knockbackVX: 0, facing: -1,
-        name: data.name || "Opponent",
-        hp: 3,
-        lastHit: 0
+        name: data.name || "Opponent", hp: 3, lastHit: 0
       };
     }
     updateStatus();
@@ -121,12 +117,8 @@
     if (data.id !== socketId) {
       const p = otherPlayers[data.id] || {};
       otherPlayers[data.id] = {
-        ...p,
-        x: data.x,
-        y: data.y,
-        color: data.color,
-        facing: data.facing || -1,
-        name: data.name || "Opponent",
+        ...p, x: data.x, y: data.y, color: data.color,
+        facing: data.facing || -1, name: data.name || "Opponent",
         hp: data.hp ?? 3
       };
     }
@@ -153,20 +145,15 @@
   function sendPosition() {
     if (socketId) {
       socket.emit("position", {
-        id: socketId,
-        x: myPlayer.x,
-        y: myPlayer.y,
-        color: myPlayer.color,
-        facing: myPlayer.facing,
-        name: myPlayer.name,
-        hp: myPlayer.hp
+        id: socketId, x: myPlayer.x, y: myPlayer.y,
+        color: myPlayer.color, facing: myPlayer.facing,
+        name: myPlayer.name, hp: myPlayer.hp
       });
     }
   }
 
   function drawStickman(x, y, color, isPunching, isKicking, facing, name, hp) {
     if (hp <= 0) return;
-
     ctx.fillStyle = "white";
     ctx.font = "14px sans-serif";
     ctx.textAlign = "center";
@@ -289,37 +276,48 @@
   const kickBtn = document.getElementById("kick");
   const punchBtn = document.getElementById("punch");
 
-  let moveLeft = false;
-  let moveRight = false;
+  let moveLeft = false, moveRight = false;
 
   function updateMovement() {
-    myPlayer.vx = moveLeft ? -speed : (moveRight ? speed : 0);
+    myPlayer.vx = moveLeft ? -speed : moveRight ? speed : 0;
   }
 
-  leftBtn.addEventListener("click", () => { moveLeft = true; updateMovement(); });
-  rightBtn.addEventListener("click", () => { moveRight = true; updateMovement(); });
-  upBtn.addEventListener("click", () => {
+  function bindButton(button, onPress, onRelease = () => {}) {
+    button.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      onPress();
+    });
+    button.addEventListener("touchend", (e) => {
+      e.preventDefault();
+      onRelease();
+    });
+    button.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      onPress();
+    });
+    button.addEventListener("mouseup", (e) => {
+      e.preventDefault();
+      onRelease();
+    });
+  }
+
+  bindButton(leftBtn, () => { moveLeft = true; updateMovement(); }, () => { moveLeft = false; updateMovement(); });
+  bindButton(rightBtn, () => { moveRight = true; updateMovement(); }, () => { moveRight = false; updateMovement(); });
+  bindButton(upBtn, () => {
     if (!myPlayer.jumping) {
       myPlayer.vy = jumpStrength;
       myPlayer.jumping = true;
     }
   });
-  kickBtn.addEventListener("click", () => {
-    if (defeated) return;
+  bindButton(kickBtn, () => {
     myPlayer.isKicking = true;
     socket.emit("action", { id: socketId, type: "kick" });
     setTimeout(() => myPlayer.isKicking = false, 300);
   });
-  punchBtn.addEventListener("click", () => {
-    if (defeated) return;
+  bindButton(punchBtn, () => {
     myPlayer.isPunching = true;
     socket.emit("action", { id: socketId, type: "punch" });
     setTimeout(() => myPlayer.isPunching = false, 300);
-  });
-
-  document.addEventListener("touchend", () => {
-    moveLeft = moveRight = false;
-    updateMovement();
   });
 </script>
 
