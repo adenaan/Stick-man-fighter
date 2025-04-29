@@ -100,14 +100,28 @@
 
   socket.on("position", (data) => {
     if (data.id !== socketId) {
+      const p = otherPlayers[data.id] || {};
       otherPlayers[data.id] = {
-        x: data.x, y: data.y,
-        isPunching: data.isPunching,
-        isKicking: data.isKicking,
+        ...p,
+        x: data.x,
+        y: data.y,
         color: data.color,
-        knockbackVX: otherPlayers[data.id]?.knockbackVX || 0,
-        facing: data.facing || -1 // FIX: store facing direction
+        facing: data.facing || -1
       };
+    }
+  });
+
+  // 👇 NEW: Listen for action events (punch/kick)
+  socket.on("action", (data) => {
+    const p = otherPlayers[data.id];
+    if (p) {
+      if (data.type === "punch") {
+        p.isPunching = true;
+        setTimeout(() => p.isPunching = false, 300);
+      } else if (data.type === "kick") {
+        p.isKicking = true;
+        setTimeout(() => p.isKicking = false, 300);
+      }
     }
   });
 
@@ -122,10 +136,8 @@
         id: socketId,
         x: myPlayer.x,
         y: myPlayer.y,
-        isPunching: myPlayer.isPunching,
-        isKicking: myPlayer.isKicking,
         color: myPlayer.color,
-        facing: myPlayer.facing // FIX: send facing
+        facing: myPlayer.facing
       });
     }
   }
@@ -136,12 +148,12 @@
     ctx.beginPath(); ctx.arc(x, y - 40, 10, 0, Math.PI * 2); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(x, y - 30); ctx.lineTo(x, y - 10); ctx.stroke();
 
-    const dir = facing || 1; // default to 1 if not set
+    const dir = facing || 1;
 
     if (isPunching) {
-      ctx.beginPath(); ctx.moveTo(x, y - 25); ctx.lineTo(x + 15 * dir, y - 30); ctx.stroke(); // FIX
+      ctx.beginPath(); ctx.moveTo(x, y - 25); ctx.lineTo(x + 15 * dir, y - 30); ctx.stroke();
     } else if (isKicking) {
-      ctx.beginPath(); ctx.moveTo(x, y - 10); ctx.lineTo(x + 15 * dir, y + 10); ctx.stroke(); // FIX
+      ctx.beginPath(); ctx.moveTo(x, y - 10); ctx.lineTo(x + 15 * dir, y + 10); ctx.stroke();
     } else {
       ctx.beginPath();
       ctx.moveTo(x, y - 25); ctx.lineTo(x + 5, y - 20);
@@ -223,7 +235,7 @@
       p.x += p.knockbackVX;
       p.knockbackVX *= 0.8;
       if (Math.abs(p.knockbackVX) < 0.1) p.knockbackVX = 0;
-      drawStickman(p.x, p.y, p.color, p.isPunching, p.isKicking, p.facing); // FIX: use facing
+      drawStickman(p.x, p.y, p.color, p.isPunching, p.isKicking, p.facing);
     }
 
     requestAnimationFrame(gameLoop);
@@ -258,11 +270,13 @@
 
   punchBtn.addEventListener("touchstart", () => {
     myPlayer.isPunching = true;
+    socket.emit("action", { id: socketId, type: "punch" }); // 🔥 Emit punch
     setTimeout(() => { myPlayer.isPunching = false; }, 300);
   });
 
   kickBtn.addEventListener("touchstart", () => {
     myPlayer.isKicking = true;
+    socket.emit("action", { id: socketId, type: "kick" }); // 🔥 Emit kick
     setTimeout(() => { myPlayer.isKicking = false; }, 300);
   });
 
