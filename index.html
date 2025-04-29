@@ -81,7 +81,7 @@
 
   const gravity = 1;
   const jumpStrength = -12;
-  const speed = 3;
+  const speed = 5;  // Move step-by-step with this value
   const groundY = 400;
   const maxX = canvas.width - 10;  // Max x position to stay inside the canvas
   const minX = 10;  // Min x position to stay inside the canvas
@@ -258,7 +258,6 @@
 
     // Draw all players
     drawStickman(myPlayer.x, myPlayer.y, myPlayer.color, myPlayer.isPunching, myPlayer.isKicking, myPlayer.facing, myPlayer.name, myPlayer.hp);
-
     for (let id in otherPlayers) {
       const p = otherPlayers[id];
       if (p.hp > 0) {
@@ -278,11 +277,11 @@
   const punchBtn = document.getElementById("punch");
 
   leftBtn.addEventListener("click", () => {
-    myPlayer.vx = -speed;
+    myPlayer.vx = -speed;  // Step-by-step left movement
   });
 
   rightBtn.addEventListener("click", () => {
-    myPlayer.vx = speed;
+    myPlayer.vx = speed;  // Step-by-step right movement
   });
 
   upBtn.addEventListener("click", () => {
