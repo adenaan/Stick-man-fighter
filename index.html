@@ -149,7 +149,25 @@
   }
 
   function gameLoop() {
-    // Gravity and movement
+    // Horizontal collision with other players
+    for (let id in otherPlayers) {
+      const p = otherPlayers[id];
+      const dx = myPlayer.x - p.x;
+      const dy = myPlayer.y - p.y;
+
+      if (
+        Math.abs(dx) < 30 && // horizontal overlap
+        Math.abs(dy) < 40 && // similar vertical position
+        !myPlayer.jumping &&
+        myPlayer.y >= p.y - 40
+      ) {
+        if ((dx < 0 && myPlayer.vx > 0) || (dx > 0 && myPlayer.vx < 0)) {
+          myPlayer.vx = 0; // stop horizontal motion
+        }
+      }
+    }
+
+    // Apply movement
     myPlayer.x += myPlayer.vx;
     myPlayer.vy += gravity;
     myPlayer.y += myPlayer.vy;
@@ -194,13 +212,11 @@
     myPlayer.vx = moveLeft ? -speed : (moveRight ? speed : 0);
   }
 
-  // Movement
   leftBtn.addEventListener("touchstart", () => { moveLeft = true; updateMovement(); });
   leftBtn.addEventListener("touchend", () => { moveLeft = false; updateMovement(); });
   rightBtn.addEventListener("touchstart", () => { moveRight = true; updateMovement(); });
   rightBtn.addEventListener("touchend", () => { moveRight = false; updateMovement(); });
 
-  // Jump
   upBtn.addEventListener("touchstart", () => {
     if (!myPlayer.jumping) {
       myPlayer.vy = jumpStrength;
@@ -208,13 +224,11 @@
     }
   });
 
-  // Punch
   punchBtn.addEventListener("touchstart", () => {
     myPlayer.isPunching = true;
     setTimeout(() => { myPlayer.isPunching = false; }, 300);
   });
 
-  // Kick
   kickBtn.addEventListener("touchstart", () => {
     myPlayer.isKicking = true;
     setTimeout(() => { myPlayer.isKicking = false; }, 300);
@@ -226,7 +240,6 @@
       playerCount < 2 ? "Waiting for other player..." : "Both players ready!";
   }
 
-  // Prevent zoom/double-tap issues
   document.addEventListener("touchstart", (e) => {
     if (e.touches.length > 1) e.preventDefault();
   }, { passive: false });
