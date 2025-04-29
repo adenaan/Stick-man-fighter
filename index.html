@@ -68,7 +68,9 @@ const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 const socket = io("https://stick-man-fighter.glitch.me");
 
-const playerName = prompt("Enter your name:") || "Player";
+const playerName = localStorage.getItem("stickman-name") || prompt("Enter your name:") || "Player";
+localStorage.setItem("stickman-name", playerName);
+
 let socketId = null;
 let myPlayer = {
   x: 100, y: 400, vx: 0, vy: 0,
@@ -156,20 +158,16 @@ function sendPosition() {
 
 function drawStickman(x, y, color, isPunching, isKicking, facing, name, hp) {
   if (hp <= 0) return;
-
-  // Name and HP
   ctx.fillStyle = "white";
   ctx.font = "14px sans-serif";
   ctx.textAlign = "center";
   ctx.fillText(`${name} (${hp})`, x, y - 50);
 
-  // Health bar
   ctx.fillStyle = "red";
   ctx.fillRect(x - 20, y - 40, 40, 5);
   ctx.fillStyle = "lime";
   ctx.fillRect(x - 20, y - 40, 40 * (hp / 3), 5);
 
-  // Head and body
   ctx.strokeStyle = color;
   ctx.lineWidth = 3;
   ctx.beginPath(); ctx.arc(x, y - 35, 10, 0, Math.PI * 2); ctx.stroke();
@@ -266,26 +264,27 @@ function gameLoop() {
 
   handleCombat();
   sendPosition();
-  myPlayer.vx = 0; // Reset movement after each frame
+  myPlayer.vx = 0;
   requestAnimationFrame(gameLoop);
 }
 
-document.getElementById("left").addEventListener("click", () => myPlayer.vx = -speed);
-document.getElementById("right").addEventListener("click", () => myPlayer.vx = speed);
-document.getElementById("up").addEventListener("click", () => {
+// Button controls with pointer support
+document.getElementById("left").addEventListener("pointerdown", () => myPlayer.vx = -speed);
+document.getElementById("right").addEventListener("pointerdown", () => myPlayer.vx = speed);
+document.getElementById("up").addEventListener("pointerdown", () => {
   if (!myPlayer.jumping) {
     myPlayer.vy = jumpStrength;
     myPlayer.jumping = true;
   }
 });
-document.getElementById("punch").addEventListener("click", () => {
+document.getElementById("punch").addEventListener("pointerdown", () => {
   if (!defeated) {
     myPlayer.isPunching = true;
     socket.emit("action", { id: socketId, type: "punch" });
     setTimeout(() => myPlayer.isPunching = false, 300);
   }
 });
-document.getElementById("kick").addEventListener("click", () => {
+document.getElementById("kick").addEventListener("pointerdown", () => {
   if (!defeated) {
     myPlayer.isKicking = true;
     socket.emit("action", { id: socketId, type: "kick" });
@@ -295,5 +294,6 @@ document.getElementById("kick").addEventListener("click", () => {
 
 gameLoop();
 </script>
+
 </body>
 </html>
