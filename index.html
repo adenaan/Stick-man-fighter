@@ -130,16 +130,22 @@
     }
   }
 
-  function drawStickman(x, y, color, isPunching, isKicking) {
+  function drawStickman(x, y, color, isPunching, isKicking, facing) {
     ctx.strokeStyle = color;
     ctx.lineWidth = 3;
     ctx.beginPath(); ctx.arc(x, y - 40, 10, 0, Math.PI * 2); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(x, y - 30); ctx.lineTo(x, y - 10); ctx.stroke();
 
     if (isPunching) {
-      ctx.beginPath(); ctx.moveTo(x, y - 25); ctx.lineTo(x + 15, y - 30); ctx.stroke();
+      ctx.beginPath(); 
+      ctx.moveTo(x, y - 25); 
+      ctx.lineTo(x + facing * 15, y - 30); 
+      ctx.stroke();
     } else if (isKicking) {
-      ctx.beginPath(); ctx.moveTo(x, y - 10); ctx.lineTo(x + 15, y + 10); ctx.stroke();
+      ctx.beginPath(); 
+      ctx.moveTo(x, y - 10); 
+      ctx.lineTo(x + facing * 15, y + 10); 
+      ctx.stroke();
     } else {
       ctx.beginPath();
       ctx.moveTo(x, y - 25); ctx.lineTo(x + 5, y - 20);
@@ -156,8 +162,8 @@
   function applyKnockback(attacker, target) {
     const dx = target.x - attacker.x;
     const inRange = Math.abs(dx) < 30 && Math.abs(target.y - attacker.y) < 30;
-    const facingCorrect = attacker.facing === (dx > 0 ? 1 : -1);
-    if (inRange && facingCorrect) {
+    const isFacingTarget = attacker.facing === (dx > 0 ? 1 : -1);
+    if (inRange && isFacingTarget) {
       target.knockbackVX = attacker.facing * 5;
     }
   }
@@ -184,9 +190,14 @@
   }
 
   function updateFacingDirection() {
+    let closestDist = Infinity;
     for (let id in otherPlayers) {
       const p = otherPlayers[id];
-      myPlayer.facing = myPlayer.x < p.x ? 1 : -1;
+      const dist = Math.abs(myPlayer.x - p.x);
+      if (dist < closestDist) {
+        myPlayer.facing = myPlayer.x < p.x ? 1 : -1;
+        closestDist = dist;
+      }
     }
   }
 
@@ -215,13 +226,13 @@
     ctx.fillStyle = "#333";
     ctx.fillRect(0, groundY + 10, canvas.width, 5);
 
-    drawStickman(myPlayer.x, myPlayer.y, myPlayer.color, myPlayer.isPunching, myPlayer.isKicking);
+    drawStickman(myPlayer.x, myPlayer.y, myPlayer.color, myPlayer.isPunching, myPlayer.isKicking, myPlayer.facing);
     for (let id in otherPlayers) {
       const p = otherPlayers[id];
       p.x += p.knockbackVX;
       p.knockbackVX *= 0.8;
       if (Math.abs(p.knockbackVX) < 0.1) p.knockbackVX = 0;
-      drawStickman(p.x, p.y, p.color, p.isPunching, p.isKicking);
+      drawStickman(p.x, p.y, p.color, p.isPunching, p.isKicking, p.facing);
     }
 
     requestAnimationFrame(gameLoop);
