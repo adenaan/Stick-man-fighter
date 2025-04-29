@@ -268,7 +268,7 @@ function gameLoop() {
   requestAnimationFrame(gameLoop);
 }
 
-// Button controls with pointer support
+// Button controls
 document.getElementById("left").addEventListener("pointerdown", () => myPlayer.vx = -speed);
 document.getElementById("right").addEventListener("pointerdown", () => myPlayer.vx = speed);
 document.getElementById("up").addEventListener("pointerdown", () => {
@@ -294,6 +294,5 @@ document.getElementById("kick").addEventListener("pointerdown", () => {
 
 gameLoop();
 </script>
-
 </body>
 </html>
