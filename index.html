@@ -237,7 +237,11 @@
     updateFacingDirection();
     preventOverlap();
 
-    myPlayer.x += myPlayer.vx + myPlayer.knockbackVX;
+    // Apply movement
+    if (myPlayer.x + myPlayer.vx >= minX && myPlayer.x + myPlayer.vx <= maxX) {
+      myPlayer.x += myPlayer.vx;
+    }
+
     myPlayer.vy += gravity;
     myPlayer.y += myPlayer.vy;
     myPlayer.knockbackVX *= 0.8;
@@ -249,22 +253,22 @@
       myPlayer.jumping = false;
     }
 
-    // Ensure the player stays within the screen horizontally
-    myPlayer.x = Math.max(minX, Math.min(maxX, myPlayer.x));
-
-    sendPosition();
+    // Drawing
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    // Draw all players
     drawStickman(myPlayer.x, myPlayer.y, myPlayer.color, myPlayer.isPunching, myPlayer.isKicking, myPlayer.facing, myPlayer.name, myPlayer.hp);
 
     for (let id in otherPlayers) {
       const p = otherPlayers[id];
-      drawStickman(p.x, p.y, p.color, p.isPunching, p.isKicking, p.facing, p.name, p.hp);
+      if (p.hp > 0) {
+        drawStickman(p.x, p.y, p.color, p.isPunching, p.isKicking, p.facing, p.name, p.hp);
+      }
     }
 
     handleCombat();
-    updateStatus();
 
+    sendPosition();
     requestAnimationFrame(gameLoop);
   }
 
@@ -274,49 +278,13 @@
   const kickBtn = document.getElementById("kick");
   const punchBtn = document.getElementById("punch");
 
-  let moveLeft = false;
-  let moveRight = false;
-
-  function updateMovement() {
-    myPlayer.vx = 0;
-    if (moveLeft) myPlayer.vx = -speed;
-    if (moveRight) myPlayer.vx = speed;
-  }
-
-  function bindButton(button, onPress) {
-    button.addEventListener("touchstart", (e) => {
-      e.preventDefault();
-      onPress();
-    });
-    button.addEventListener("mousedown", (e) => {
-      e.preventDefault();
-      onPress();
-    });
-    button.addEventListener("touchend", (e) => {
-      e.preventDefault();
-      updateMovement();
-    });
-    button.addEventListener("mouseup", (e) => {
-      e.preventDefault();
-      updateMovement();
-    });
-  }
-
   leftBtn.addEventListener("click", () => {
-    moveLeft = true;
-    updateMovement();
-  });
-  rightBtn.addEventListener("click", () => {
-    moveRight = true;
+    myPlayer.vx = -speed;
     updateMovement();
   });
 
-  bindButton(leftBtn, () => {
-    moveLeft = true;
-    updateMovement();
-  });
-  bindButton(rightBtn, () => {
-    moveRight = true;
+  rightBtn.addEventListener("click", () => {
+    myPlayer.vx = speed;
     updateMovement();
   });
 
