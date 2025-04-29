@@ -83,6 +83,8 @@
   const jumpStrength = -12;
   const speed = 3;
   const groundY = 400;
+  const maxX = canvas.width - 10;  // Max x position to stay inside the canvas
+  const minX = 10;  // Min x position to stay inside the canvas
 
   let otherPlayers = {};
   let defeated = false;
@@ -247,6 +249,9 @@
       myPlayer.jumping = false;
     }
 
+    // Ensure the player stays within the screen horizontally
+    myPlayer.x = Math.max(minX, Math.min(maxX, myPlayer.x));
+
     sendPosition();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -297,22 +302,40 @@
     });
   }
 
-  bindButton(leftBtn, () => { moveLeft = true; updateMovement(); });
-  bindButton(rightBtn, () => { moveRight = true; updateMovement(); });
-  bindButton(upBtn, () => { if (!myPlayer.jumping) myPlayer.vy = jumpStrength; myPlayer.jumping = true; });
-  bindButton(kickBtn, () => {
-    myPlayer.isKicking = true;
-    socket.emit("action", { type: "kick" });
-    setTimeout(() => myPlayer.isKicking = false, 300);
+  leftBtn.addEventListener("click", () => {
+    moveLeft = true;
+    updateMovement();
   });
-  bindButton(punchBtn, () => {
-    myPlayer.isPunching = true;
-    socket.emit("action", { type: "punch" });
-    setTimeout(() => myPlayer.isPunching = false, 300);
+  rightBtn.addEventListener("click", () => {
+    moveRight = true;
+    updateMovement();
   });
 
-  gameLoop();
+  bindButton(leftBtn, () => {
+    moveLeft = true;
+    updateMovement();
+  });
+  bindButton(rightBtn, () => {
+    moveRight = true;
+    updateMovement();
+  });
+
+  upBtn.addEventListener("click", () => {
+    if (!myPlayer.jumping) {
+      myPlayer.vy = jumpStrength;
+      myPlayer.jumping = true;
+    }
+  });
+
+  kickBtn.addEventListener("click", () => {
+    socket.emit("action", { type: "kick", id: socketId });
+  });
+
+  punchBtn.addEventListener("click", () => {
+    socket.emit("action", { type: "punch", id: socketId });
+  });
+
+  gameLoop();  // Start the game loop
 </script>
-
 </body>
 </html>
