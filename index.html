@@ -111,7 +111,6 @@
     }
   });
 
-  // 👇 NEW: Listen for action events (punch/kick)
   socket.on("action", (data) => {
     const p = otherPlayers[data.id];
     if (p) {
@@ -270,13 +269,13 @@
 
   punchBtn.addEventListener("touchstart", () => {
     myPlayer.isPunching = true;
-    socket.emit("action", { id: socketId, type: "punch" }); // 🔥 Emit punch
+    socket.emit("action", { id: socketId, type: "punch" });
     setTimeout(() => { myPlayer.isPunching = false; }, 300);
   });
 
   kickBtn.addEventListener("touchstart", () => {
     myPlayer.isKicking = true;
-    socket.emit("action", { id: socketId, type: "kick" }); // 🔥 Emit kick
+    socket.emit("action", { id: socketId, type: "kick" });
     setTimeout(() => { myPlayer.isKicking = false; }, 300);
   });
 
@@ -289,13 +288,6 @@
   document.addEventListener("touchstart", (e) => {
     if (e.touches.length > 1) e.preventDefault();
   }, { passive: false });
-
-  let lastTouchEnd = 0;
-  document.addEventListener("touchend", (e) => {
-    const now = Date.now();
-    if (now - lastTouchEnd <= 300) e.preventDefault();
-    lastTouchEnd = now;
-  }, false);
 </script>
 
 </body>
