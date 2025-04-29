@@ -157,16 +157,19 @@ function sendPosition() {
 function drawStickman(x, y, color, isPunching, isKicking, facing, name, hp) {
   if (hp <= 0) return;
 
+  // Name and HP
   ctx.fillStyle = "white";
   ctx.font = "14px sans-serif";
   ctx.textAlign = "center";
   ctx.fillText(`${name} (${hp})`, x, y - 50);
 
+  // Health bar
   ctx.fillStyle = "red";
   ctx.fillRect(x - 20, y - 40, 40, 5);
   ctx.fillStyle = "lime";
   ctx.fillRect(x - 20, y - 40, 40 * (hp / 3), 5);
 
+  // Head and body
   ctx.strokeStyle = color;
   ctx.lineWidth = 3;
   ctx.beginPath(); ctx.arc(x, y - 35, 10, 0, Math.PI * 2); ctx.stroke();
@@ -263,7 +266,7 @@ function gameLoop() {
 
   handleCombat();
   sendPosition();
-  myPlayer.vx = 0;
+  myPlayer.vx = 0; // Reset movement after each frame
   requestAnimationFrame(gameLoop);
 }
 
@@ -292,6 +295,5 @@ document.getElementById("kick").addEventListener("click", () => {
 
 gameLoop();
 </script>
-
 </body>
 </html>
