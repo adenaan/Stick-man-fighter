@@ -78,7 +78,7 @@ let myPlayer = {
   color: "lime", jumping: false,
   knockbackVX: 0, facing: 1,
   name: playerName, hp: 3,
-  lastHit: 0
+  lastHit: 0, hitEffect: false
 };
 
 const gravity = 1;
@@ -111,7 +111,7 @@ socket.on("newPlayer", (data) => {
     otherPlayers[data.id] = {
       x: 100, y: 400, isPunching: false, isKicking: false, isBlocking: false,
       color: data.color, knockbackVX: 0, facing: -1,
-      name: data.name || "Opponent", hp: 3, lastHit: 0
+      name: data.name || "Opponent", hp: 3, lastHit: 0, hitEffect: false
     };
   }
   updateStatus();
@@ -123,7 +123,7 @@ socket.on("position", (data) => {
     otherPlayers[data.id] = {
       ...p, x: data.x, y: data.y, color: data.color,
       facing: data.facing || -1, name: data.name || "Opponent",
-      hp: data.hp ?? 3, isBlocking: data.isBlocking ?? false
+      hp: data.hp ?? 3, isBlocking: data.isBlocking ?? false, hitEffect: data.hitEffect ?? false
     };
   }
 });
@@ -154,13 +154,23 @@ function sendPosition() {
       id: socketId, x: myPlayer.x, y: myPlayer.y,
       color: myPlayer.color, facing: myPlayer.facing,
       name: myPlayer.name, hp: myPlayer.hp,
-      isBlocking: myPlayer.isBlocking
+      isBlocking: myPlayer.isBlocking, hitEffect: myPlayer.hitEffect
     });
   }
 }
 
-function drawStickman(x, y, color, isPunching, isKicking, facing, name, hp, isBlocking) {
+function drawStickman(x, y, color, isPunching, isKicking, facing, name, hp, isBlocking, hitEffect) {
   if (hp <= 0) return;
+
+  // Visual Effects (hit/kick)
+  if (hitEffect) {
+    ctx.fillStyle = "red";
+    ctx.beginPath();
+    ctx.arc(x, y - 35, 15, 0, Math.PI * 2);
+    ctx.fill();
+    setTimeout(() => myPlayer.hitEffect = false, 200);  // Reset effect after a brief moment
+  }
+
   ctx.fillStyle = "white";
   ctx.font = "14px sans-serif";
   ctx.textAlign = "center";
@@ -211,6 +221,8 @@ function applyKnockback(attacker, target) {
       target.knockbackVX = attacker.facing * 5;
       target.hp--;
       target.lastHit = now;
+      target.hitEffect = true;  // Trigger the hit effect
+
       if (target.id === socketId) {
         myPlayer.hp--;
         if (myPlayer.hp <= 0) defeated = true;
@@ -252,67 +264,4 @@ function gameLoop() {
   preventOverlap();
 
   if (myPlayer.x + myPlayer.vx >= minX && myPlayer.x + myPlayer.vx <= maxX) {
-    myPlayer.x += myPlayer.vx;
-  }
-
-  myPlayer.vy += gravity;
-  myPlayer.y += myPlayer.vy;
-  myPlayer.knockbackVX *= 0.8;
-  if (Math.abs(myPlayer.knockbackVX) < 0.1) myPlayer.knockbackVX = 0;
-
-  if (myPlayer.y >= groundY) {
-    myPlayer.y = groundY;
-    myPlayer.vy = 0;
-    myPlayer.jumping = false;
-  }
-
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  drawStickman(myPlayer.x, myPlayer.y, myPlayer.color, myPlayer.isPunching, myPlayer.isKicking, myPlayer.facing, myPlayer.name, myPlayer.hp, myPlayer.isBlocking);
-  for (let id in otherPlayers) {
-    const p = otherPlayers[id];
-    drawStickman(p.x, p.y, p.color, p.isPunching, p.isKicking, p.facing, p.name, p.hp, p.isBlocking);
-  }
-
-  handleCombat();
-  sendPosition();
-  myPlayer.vx = 0;
-  requestAnimationFrame(gameLoop);
-}
-
-document.getElementById("left").addEventListener("pointerdown", () => myPlayer.vx = -speed);
-document.getElementById("right").addEventListener("pointerdown", () => myPlayer.vx = speed);
-document.getElementById("up").addEventListener("pointerdown", () => {
-  if (!myPlayer.jumping) {
-    myPlayer.vy = jumpStrength;
-    myPlayer.jumping = true;
-  }
-});
-
-document.getElementById("kick").addEventListener("pointerdown", () => {
-  myPlayer.isKicking = true;
-  socket.emit("action", { type: "kick", id: socketId });
-  setTimeout(() => myPlayer.isKicking = false, 300);
-});
-
-document.getElementById("punch").addEventListener("pointerdown", () => {
-  myPlayer.isPunching = true;
-  socket.emit("action", { type: "punch", id: socketId });
-  setTimeout(() => myPlayer.isPunching = false, 300);
-});
-
-document.getElementById("block").addEventListener("pointerdown", () => {
-  myPlayer.isBlocking = true;
-  socket.emit("action", { type: "block", id: socketId, state: true });
-});
-
-document.getElementById("block").addEventListener("pointerup", () => {
-  myPlayer.isBlocking = false;
-  socket.emit("action", { type: "block", id: socketId, state: false });
-});
-
-gameLoop();
-
-</script>
-</body>
-</html>
+    my
