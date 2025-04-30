@@ -68,7 +68,6 @@ const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 const socket = io("https://stick-man-fighter.glitch.me");
 
-// Always prompt for name on load
 const playerName = prompt("Enter your name:") || "Player";
 
 let socketId = null;
@@ -264,11 +263,9 @@ function gameLoop() {
 
   handleCombat();
   sendPosition();
-  myPlayer.vx = 0;
   requestAnimationFrame(gameLoop);
 }
 
-// Button controls
 document.getElementById("left").addEventListener("pointerdown", () => myPlayer.vx = -speed);
 document.getElementById("right").addEventListener("pointerdown", () => myPlayer.vx = speed);
 document.getElementById("up").addEventListener("pointerdown", () => {
