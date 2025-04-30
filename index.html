@@ -169,16 +169,19 @@ function drawStickman(x, y, color, isPunching, isKicking, facing, name, hp, isBl
     ctx.fill();
   }
 
+  // Show name + HP
   ctx.fillStyle = "white";
   ctx.font = "14px sans-serif";
   ctx.textAlign = "center";
   ctx.fillText(`${name} (${hp})`, x, y - 50);
 
+  // Health bar
   ctx.fillStyle = "red";
   ctx.fillRect(x - 20, y - 40, 40, 5);
   ctx.fillStyle = "lime";
   ctx.fillRect(x - 20, y - 40, 40 * (hp / 3), 5);
 
+  // Body
   ctx.strokeStyle = color;
   ctx.lineWidth = 3;
   ctx.beginPath(); ctx.arc(x, y - 35, 10, 0, Math.PI * 2); ctx.stroke();
@@ -196,6 +199,7 @@ function drawStickman(x, y, color, isPunching, isKicking, facing, name, hp, isBl
     ctx.stroke();
   }
 
+  // Legs
   ctx.beginPath();
   ctx.moveTo(x, y - 5); ctx.lineTo(x + 10, y + 10);
   ctx.moveTo(x, y - 5); ctx.lineTo(x - 10, y + 10);
@@ -220,6 +224,7 @@ function applyKnockback(attacker, target) {
       target.hp--;
       target.lastHit = now;
       target.hitEffect = true;
+      setTimeout(() => target.hitEffect = false, 200);
     }
   }
 }
@@ -280,7 +285,6 @@ function gameLoop() {
     p.x += p.knockbackVX;
     p.knockbackVX *= 0.9;
     drawStickman(p.x, p.y, p.color, p.isPunching, p.isKicking, p.facing, p.name, p.hp, p.isBlocking, p.hitEffect);
-    if (p.hitEffect) setTimeout(() => p.hitEffect = false, 200);
   }
 
   requestAnimationFrame(gameLoop);
