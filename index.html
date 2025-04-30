@@ -199,15 +199,9 @@ function applyKnockback(attacker, target) {
     target.knockbackVX = attacker.facing * 5;
     target.hp--;
     target.lastHit = now;
-
-    if (target === myPlayer) {
+    if (target.id === socketId) {
+      myPlayer.hp--;
       if (myPlayer.hp <= 0) defeated = true;
-    } else if (target.id) {
-      socket.emit("position", {
-        id: target.id, x: target.x, y: target.y,
-        color: target.color, facing: target.facing,
-        name: target.name, hp: target.hp
-      });
     }
   }
 }
@@ -270,11 +264,10 @@ function gameLoop() {
   handleCombat();
   sendPosition();
   myPlayer.vx = 0;
-  updateStatus();
   requestAnimationFrame(gameLoop);
 }
 
-// Controls
+// Button controls
 document.getElementById("left").addEventListener("pointerdown", () => myPlayer.vx = -speed);
 document.getElementById("right").addEventListener("pointerdown", () => myPlayer.vx = speed);
 document.getElementById("up").addEventListener("pointerdown", () => {
@@ -300,5 +293,6 @@ document.getElementById("kick").addEventListener("pointerdown", () => {
 
 gameLoop();
 </script>
+
 </body>
 </html>
