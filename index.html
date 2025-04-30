@@ -68,8 +68,8 @@ const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 const socket = io("https://stick-man-fighter.glitch.me");
 
-const playerName = localStorage.getItem("stickman-name") || prompt("Enter your name:") || "Player";
-localStorage.setItem("stickman-name", playerName);
+// Always prompt for name on load
+const playerName = prompt("Enter your name:") || "Player";
 
 let socketId = null;
 let myPlayer = {
