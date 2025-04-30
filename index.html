@@ -162,13 +162,11 @@ function sendPosition() {
 function drawStickman(x, y, color, isPunching, isKicking, facing, name, hp, isBlocking, hitEffect) {
   if (hp <= 0) return;
 
-  // Visual Effects (hit/kick)
   if (hitEffect) {
     ctx.fillStyle = "red";
     ctx.beginPath();
     ctx.arc(x, y - 35, 15, 0, Math.PI * 2);
     ctx.fill();
-    setTimeout(() => myPlayer.hitEffect = false, 200);  // Reset effect after a brief moment
   }
 
   ctx.fillStyle = "white";
@@ -221,12 +219,7 @@ function applyKnockback(attacker, target) {
       target.knockbackVX = attacker.facing * 5;
       target.hp--;
       target.lastHit = now;
-      target.hitEffect = true;  // Trigger the hit effect
-
-      if (target.id === socketId) {
-        myPlayer.hp--;
-        if (myPlayer.hp <= 0) defeated = true;
-      }
+      target.hitEffect = true;
     }
   }
 }
@@ -264,4 +257,68 @@ function gameLoop() {
   preventOverlap();
 
   if (myPlayer.x + myPlayer.vx >= minX && myPlayer.x + myPlayer.vx <= maxX) {
-    my
+    myPlayer.x += myPlayer.vx;
+  }
+
+  myPlayer.vy += gravity;
+  myPlayer.y += myPlayer.vy;
+
+  if (myPlayer.y > groundY) {
+    myPlayer.y = groundY;
+    myPlayer.vy = 0;
+    myPlayer.jumping = false;
+  }
+
+  handleCombat();
+  sendPosition();
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawStickman(myPlayer.x, myPlayer.y, myPlayer.color, myPlayer.isPunching, myPlayer.isKicking, myPlayer.facing, myPlayer.name, myPlayer.hp, myPlayer.isBlocking, myPlayer.hitEffect);
+
+  for (let id in otherPlayers) {
+    const p = otherPlayers[id];
+    p.x += p.knockbackVX;
+    p.knockbackVX *= 0.9;
+    drawStickman(p.x, p.y, p.color, p.isPunching, p.isKicking, p.facing, p.name, p.hp, p.isBlocking, p.hitEffect);
+    if (p.hitEffect) setTimeout(() => p.hitEffect = false, 200);
+  }
+
+  requestAnimationFrame(gameLoop);
+}
+
+document.getElementById("left").addEventListener("pointerdown", () => myPlayer.vx = -speed);
+document.getElementById("right").addEventListener("pointerdown", () => myPlayer.vx = speed);
+document.addEventListener("pointerup", () => myPlayer.vx = 0);
+
+document.getElementById("up").addEventListener("pointerdown", () => {
+  if (!myPlayer.jumping) {
+    myPlayer.vy = jumpStrength;
+    myPlayer.jumping = true;
+  }
+});
+
+document.getElementById("kick").addEventListener("pointerdown", () => {
+  myPlayer.isKicking = true;
+  socket.emit("action", { type: "kick", id: socketId });
+  setTimeout(() => myPlayer.isKicking = false, 300);
+});
+
+document.getElementById("punch").addEventListener("pointerdown", () => {
+  myPlayer.isPunching = true;
+  socket.emit("action", { type: "punch", id: socketId });
+  setTimeout(() => myPlayer.isPunching = false, 300);
+});
+
+document.getElementById("block").addEventListener("pointerdown", () => {
+  myPlayer.isBlocking = true;
+  socket.emit("action", { type: "block", id: socketId, state: true });
+});
+document.getElementById("block").addEventListener("pointerup", () => {
+  myPlayer.isBlocking = false;
+  socket.emit("action", { type: "block", id: socketId, state: false });
+});
+
+gameLoop();
+</script>
+</body>
+</html>
