@@ -1,205 +1,304 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, user-scalable=no" />
+  <title>Stickman Fighter</title>
   <style>
-    html, body {
+    body {
       margin: 0;
-      padding: 0;
       background: #111;
-      overflow: hidden;
+      color: white;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      touch-action: manipulation;
     }
     canvas {
-      display: block;
       background: #222;
+      margin-top: 10px;
+      border: 2px solid #444;
+      touch-action: none;
     }
-    #startBtn {
-      position: absolute;
-      top: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 24px;
-      padding: 10px 20px;
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin: 10px;
+    }
+    .button {
+      width: 70px;
+      height: 70px;
+      margin: 5px;
+      font-size: 18px;
+      border-radius: 10px;
+      border: none;
+      background: #444;
+      color: white;
+      touch-action: manipulation;
+    }
+    .button:active {
+      background: #666;
+    }
+    #status {
+      margin-top: 10px;
+      font-size: 18px;
+      color: lime;
     }
   </style>
 </head>
 <body>
-<canvas id="gameCanvas"></canvas>
-<button id="startBtn">Start Game</button>
+
+<canvas id="gameCanvas" width="360" height="480"></canvas>
+
+<div class="controls">
+  <button class="button" id="left">◀️</button>
+  <button class="button" id="right">▶️</button>
+  <button class="button" id="up">⬆️</button>
+  <button class="button" id="kick">🦵</button>
+  <button class="button" id="punch">👊</button>
+</div>
+
+<div id="status">Waiting for other player...</div>
+
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <script>
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-let width, height;
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+const socket = io("https://stick-man-fighter.glitch.me");
 
-function resizeCanvas() {
-  width = window.innerWidth;
-  height = window.innerHeight;
-  canvas.width = width;
-  canvas.height = height;
+const playerName = prompt("Enter your name:") || "Player";
+
+let socketId = null;
+let myPlayer = {
+  x: 100, y: 400, vx: 0, vy: 0,
+  isPunching: false, isKicking: false,
+  color: "lime", jumping: false,
+  knockbackVX: 0, facing: 1,
+  name: playerName, hp: 3,
+  lastHit: 0
+};
+
+const gravity = 1;
+const jumpStrength = -12;
+const speed = 5;
+const groundY = 400;
+const maxX = canvas.width - 10;
+const minX = 10;
+
+let otherPlayers = {};
+let defeated = false;
+
+function updateStatus() {
+  const others = Object.keys(otherPlayers).length;
+  document.getElementById("status").textContent = defeated || myPlayer.hp <= 0
+    ? "You were knocked out!"
+    : others === 0
+      ? "Waiting for other player..."
+      : "Fight!";
 }
-window.addEventListener('resize', resizeCanvas);
-resizeCanvas();
 
-class Stickman {
-  constructor(x, leftKey, rightKey, punchKey, kickKey, color) {
-    this.x = x;
-    this.y = height - 100;
-    this.width = 40;
-    this.height = 80;
-    this.color = color;
-    this.facing = 1; // 1 = right, -1 = left
-    this.health = 100;
-    this.isHit = false;
-    this.hitTimer = 0;
+socket.on("init", (data) => {
+  socketId = data.id;
+  myPlayer.color = data.color;
+  sendPosition();
+});
 
-    this.controls = {
-      left: leftKey,
-      right: rightKey,
-      punch: punchKey,
-      kick: kickKey
+socket.on("newPlayer", (data) => {
+  if (data.id !== socketId) {
+    otherPlayers[data.id] = {
+      x: 100, y: 400, isPunching: false, isKicking: false,
+      color: data.color, knockbackVX: 0, facing: -1,
+      name: data.name || "Opponent", hp: 3, lastHit: 0
     };
-    this.movement = { left: false, right: false };
-    this.attackCooldown = 0;
   }
-
-  update(opponent) {
-    // Movement
-    if (this.movement.left) {
-      this.x -= 4;
-      this.facing = -1;
-    }
-    if (this.movement.right) {
-      this.x += 4;
-      this.facing = 1;
-    }
-    this.x = Math.max(0, Math.min(width - this.width, this.x));
-
-    // Facing opponent
-    if (opponent.x < this.x) {
-      this.facing = -1;
-    } else {
-      this.facing = 1;
-    }
-
-    // Timers
-    if (this.attackCooldown > 0) this.attackCooldown--;
-    if (this.hitTimer > 0) {
-      this.hitTimer--;
-      if (this.hitTimer === 0) this.isHit = false;
-    }
-  }
-
-  draw() {
-    ctx.save();
-    if (this.isHit) {
-      ctx.globalAlpha = 0.5;
-    }
-
-    // Stick body
-    ctx.strokeStyle = this.color;
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.moveTo(this.x + this.width / 2, this.y);               // head
-    ctx.lineTo(this.x + this.width / 2, this.y + this.height); // body
-    ctx.stroke();
-
-    // Draw head
-    ctx.beginPath();
-    ctx.arc(this.x + this.width / 2, this.y - 10, 10, 0, Math.PI * 2);
-    ctx.stroke();
-
-    ctx.restore();
-
-    // Draw health bar above head
-    const barWidth = 50;
-    const barHeight = 6;
-    const barX = this.x + this.width / 2 - barWidth / 2;
-    const barY = this.y - 40; // ABOVE head
-    ctx.fillStyle = 'red';
-    ctx.fillRect(barX, barY, barWidth, barHeight);
-    ctx.fillStyle = 'lime';
-    ctx.fillRect(barX, barY, barWidth * (this.health / 100), barHeight);
-  }
-
-  attack(type, opponent) {
-    if (this.attackCooldown > 0) return;
-
-    const range = 50;
-    const damage = type === 'punch' ? 10 : 15;
-    const dx = opponent.x - this.x;
-
-    const inRange = Math.abs(dx) < range && (dx * this.facing > 0);
-
-    if (inRange) {
-      opponent.health -= damage;
-      opponent.health = Math.max(0, opponent.health);
-      opponent.isHit = true;
-      opponent.hitTimer = 10;
-    }
-
-    this.attackCooldown = 30;
-  }
-}
-
-let player1, player2;
-
-function resetGame() {
-  player1 = new Stickman(100, 'a', 'd', 'w', 's', 'cyan');
-  player2 = new Stickman(width - 140, 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'orange');
-}
-
-resetGame();
-
-document.addEventListener('keydown', (e) => {
-  [player1, player2].forEach(player => {
-    if (e.key === player.controls.left) player.movement.left = true;
-    if (e.key === player.controls.right) player.movement.right = true;
-    if (e.key === player.controls.punch) player.attack('punch', player === player1 ? player2 : player1);
-    if (e.key === player.controls.kick) player.attack('kick', player === player1 ? player2 : player1);
-  });
+  updateStatus();
 });
 
-document.addEventListener('keyup', (e) => {
-  [player1, player2].forEach(player => {
-    if (e.key === player.controls.left) player.movement.left = false;
-    if (e.key === player.controls.right) player.movement.right = false;
-  });
+socket.on("position", (data) => {
+  if (data.id !== socketId) {
+    const p = otherPlayers[data.id] || {};
+    otherPlayers[data.id] = {
+      ...p, x: data.x, y: data.y, color: data.color,
+      facing: data.facing || -1, name: data.name || "Opponent",
+      hp: data.hp ?? 3
+    };
+  }
 });
 
-function update() {
-  player1.update(player2);
-  player2.update(player1);
+socket.on("action", (data) => {
+  const p = otherPlayers[data.id];
+  if (p) {
+    if (data.type === "punch") {
+      p.isPunching = true;
+      setTimeout(() => p.isPunching = false, 300);
+    } else if (data.type === "kick") {
+      p.isKicking = true;
+      setTimeout(() => p.isKicking = false, 300);
+    }
+  }
+});
+
+socket.on("remove", (data) => {
+  delete otherPlayers[data.id];
+  updateStatus();
+});
+
+function sendPosition() {
+  if (socketId) {
+    socket.emit("position", {
+      id: socketId, x: myPlayer.x, y: myPlayer.y,
+      color: myPlayer.color, facing: myPlayer.facing,
+      name: myPlayer.name, hp: myPlayer.hp
+    });
+  }
 }
 
-function draw() {
-  ctx.clearRect(0, 0, width, height);
-  player1.draw();
-  player2.draw();
+function drawStickman(x, y, color, isPunching, isKicking, facing, name, hp) {
+  if (hp <= 0) return;
+  ctx.fillStyle = "white";
+  ctx.font = "14px sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText(`${name} (${hp})`, x, y - 50);
 
-  // Game Over check
-  if (player1.health <= 0 || player2.health <= 0) {
-    ctx.fillStyle = 'white';
-    ctx.font = '30px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(
-      player1.health <= 0 ? "Player 2 Wins!" : "Player 1 Wins!",
-      width / 2,
-      height / 2
-    );
+  ctx.fillStyle = "red";
+  ctx.fillRect(x - 20, y - 40, 40, 5);
+  ctx.fillStyle = "lime";
+  ctx.fillRect(x - 20, y - 40, 40 * (hp / 3), 5);
+
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(x, y - 35, 10, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x, y - 25); ctx.lineTo(x, y - 5); ctx.stroke();
+
+  const dir = facing || 1;
+  if (isPunching) {
+    ctx.beginPath(); ctx.moveTo(x, y - 20); ctx.lineTo(x + 15 * dir, y - 25); ctx.stroke();
+  } else if (isKicking) {
+    ctx.beginPath(); ctx.moveTo(x, y - 5); ctx.lineTo(x + 15 * dir, y + 10); ctx.stroke();
+  } else {
+    ctx.beginPath();
+    ctx.moveTo(x, y - 20); ctx.lineTo(x + 5, y - 15);
+    ctx.moveTo(x, y - 20); ctx.lineTo(x - 5, y - 15);
+    ctx.stroke();
+  }
+
+  ctx.beginPath();
+  ctx.moveTo(x, y - 5); ctx.lineTo(x + 10, y + 10);
+  ctx.moveTo(x, y - 5); ctx.lineTo(x - 10, y + 10);
+  ctx.stroke();
+}
+
+function applyKnockback(attacker, target) {
+  const now = Date.now();
+  const dx = target.x - attacker.x;
+  const inRange = Math.abs(dx) < 30 && Math.abs(target.y - attacker.y) < 30;
+  const facingCorrect = attacker.facing === (dx > 0 ? 1 : -1);
+  if (inRange && facingCorrect && now - target.lastHit > 1000 && target.hp > 0) {
+    target.knockbackVX = attacker.facing * 5;
+    target.hp--;
+    target.lastHit = now;
+
+    if (target === myPlayer) {
+      if (myPlayer.hp <= 0) defeated = true;
+    } else if (target.id) {
+      socket.emit("position", {
+        id: target.id, x: target.x, y: target.y,
+        color: target.color, facing: target.facing,
+        name: target.name, hp: target.hp
+      });
+    }
+  }
+}
+
+function handleCombat() {
+  for (let id in otherPlayers) {
+    const p = otherPlayers[id];
+    if (!defeated && (myPlayer.isPunching || myPlayer.isKicking) && p.hp > 0) {
+      applyKnockback(myPlayer, p);
+    }
+  }
+}
+
+function preventOverlap() {
+  for (let id in otherPlayers) {
+    const p = otherPlayers[id];
+    const dx = p.x - myPlayer.x;
+    const overlap = Math.abs(dx) < 20 && Math.abs(p.y - myPlayer.y) < 30;
+    if (overlap) {
+      if (dx > 0 && myPlayer.vx > 0) myPlayer.vx = 0;
+      if (dx < 0 && myPlayer.vx < 0) myPlayer.vx = 0;
+    }
+  }
+}
+
+function updateFacingDirection() {
+  for (let id in otherPlayers) {
+    const p = otherPlayers[id];
+    myPlayer.facing = myPlayer.x < p.x ? 1 : -1;
   }
 }
 
 function gameLoop() {
-  update();
-  draw();
+  updateFacingDirection();
+  preventOverlap();
+
+  if (myPlayer.x + myPlayer.vx >= minX && myPlayer.x + myPlayer.vx <= maxX) {
+    myPlayer.x += myPlayer.vx;
+  }
+
+  myPlayer.vy += gravity;
+  myPlayer.y += myPlayer.vy;
+  myPlayer.knockbackVX *= 0.8;
+  if (Math.abs(myPlayer.knockbackVX) < 0.1) myPlayer.knockbackVX = 0;
+
+  if (myPlayer.y >= groundY) {
+    myPlayer.y = groundY;
+    myPlayer.vy = 0;
+    myPlayer.jumping = false;
+  }
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  drawStickman(myPlayer.x, myPlayer.y, myPlayer.color, myPlayer.isPunching, myPlayer.isKicking, myPlayer.facing, myPlayer.name, myPlayer.hp);
+  for (let id in otherPlayers) {
+    const p = otherPlayers[id];
+    drawStickman(p.x, p.y, p.color, p.isPunching, p.isKicking, p.facing, p.name, p.hp);
+  }
+
+  handleCombat();
+  sendPosition();
+  myPlayer.vx = 0;
+  updateStatus();
   requestAnimationFrame(gameLoop);
 }
 
-document.getElementById('startBtn').addEventListener('click', () => {
-  resetGame();
-  gameLoop();
-  document.getElementById('startBtn').style.display = 'none';
+// Controls
+document.getElementById("left").addEventListener("pointerdown", () => myPlayer.vx = -speed);
+document.getElementById("right").addEventListener("pointerdown", () => myPlayer.vx = speed);
+document.getElementById("up").addEventListener("pointerdown", () => {
+  if (!myPlayer.jumping) {
+    myPlayer.vy = jumpStrength;
+    myPlayer.jumping = true;
+  }
 });
+document.getElementById("punch").addEventListener("pointerdown", () => {
+  if (!defeated) {
+    myPlayer.isPunching = true;
+    socket.emit("action", { id: socketId, type: "punch" });
+    setTimeout(() => myPlayer.isPunching = false, 300);
+  }
+});
+document.getElementById("kick").addEventListener("pointerdown", () => {
+  if (!defeated) {
+    myPlayer.isKicking = true;
+    socket.emit("action", { id: socketId, type: "kick" });
+    setTimeout(() => myPlayer.isKicking = false, 300);
+  }
+});
+
+gameLoop();
 </script>
 </body>
 </html>
