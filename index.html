@@ -288,30 +288,31 @@ document.getElementById("up").addEventListener("pointerdown", () => {
     myPlayer.jumping = true;
   }
 });
-document.getElementById("punch").addEventListener("pointerdown", () => {
-  if (!defeated) {
-    myPlayer.isPunching = true;
-    socket.emit("action", { id: socketId, type: "punch" });
-    setTimeout(() => myPlayer.isPunching = false, 300);
-  }
-});
+
 document.getElementById("kick").addEventListener("pointerdown", () => {
-  if (!defeated) {
-    myPlayer.isKicking = true;
-    socket.emit("action", { id: socketId, type: "kick" });
-    setTimeout(() => myPlayer.isKicking = false, 300);
-  }
+  myPlayer.isKicking = true;
+  socket.emit("action", { type: "kick", id: socketId });
+  setTimeout(() => myPlayer.isKicking = false, 300);
 });
+
+document.getElementById("punch").addEventListener("pointerdown", () => {
+  myPlayer.isPunching = true;
+  socket.emit("action", { type: "punch", id: socketId });
+  setTimeout(() => myPlayer.isPunching = false, 300);
+});
+
 document.getElementById("block").addEventListener("pointerdown", () => {
   myPlayer.isBlocking = true;
-  socket.emit("action", { id: socketId, type: "block", state: true });
+  socket.emit("action", { type: "block", id: socketId, state: true });
 });
+
 document.getElementById("block").addEventListener("pointerup", () => {
   myPlayer.isBlocking = false;
-  socket.emit("action", { id: socketId, type: "block", state: false });
+  socket.emit("action", { type: "block", id: socketId, state: false });
 });
 
 gameLoop();
+
 </script>
 </body>
 </html>
